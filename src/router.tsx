@@ -12,6 +12,8 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { SubtopicPage } from "./pages/SubtopicPage";
 import { UnitPage } from "./pages/UnitPage";
 
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
+
 export const router = createBrowserRouter(
   [
     {
@@ -33,6 +35,7 @@ export const router = createBrowserRouter(
     },
   ],
   {
+    basename,
     future: {
       v7_relativeSplatPath: true,
     },
