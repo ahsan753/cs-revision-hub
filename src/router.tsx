@@ -1,0 +1,40 @@
+import { createBrowserRouter } from "react-router-dom";
+import { AppShell } from "./components/layout/AppShell";
+import { FlashcardsPage } from "./activities/Flashcards/FlashcardsPage";
+import { CodeLabPage } from "./activities/CodeLab/CodeLabPage";
+import { ConversionTrainerPage } from "./activities/ConversionTrainer/ConversionTrainerPage";
+import { MatchGamePage } from "./activities/MatchGame/MatchGamePage";
+import { MemoryGamePage } from "./activities/MemoryGame/MemoryGamePage";
+import { QuizPage } from "./activities/Quiz/QuizPage";
+import { HomePage } from "./pages/HomePage";
+import { ProgressPage } from "./pages/ProgressPage";
+import { SettingsPage } from "./pages/SettingsPage";
+import { SubtopicPage } from "./pages/SubtopicPage";
+import { UnitPage } from "./pages/UnitPage";
+
+export const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      element: <AppShell />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: "unit/:unitId", element: <UnitPage /> },
+        { path: "unit/:unitId/:subtopicId", element: <SubtopicPage /> },
+        { path: "play/flashcards/:scope", element: <FlashcardsPage /> },
+        { path: "play/match/:scope", element: <MatchGamePage /> },
+        { path: "play/memory/:scope", element: <MemoryGamePage /> },
+        { path: "play/quiz/:scope", element: <QuizPage /> },
+        { path: "play/code/:scope", element: <CodeLabPage /> },
+        { path: "play/convert", element: <ConversionTrainerPage /> },
+        { path: "progress", element: <ProgressPage /> },
+        { path: "settings", element: <SettingsPage /> },
+      ],
+    },
+  ],
+  {
+    future: {
+      v7_relativeSplatPath: true,
+    },
+  },
+);

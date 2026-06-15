@@ -1,0 +1,189 @@
+import { ArrowRight, BookOpen, Calculator, Code2, Flame, Grid2X2, Puzzle, Target, Trophy } from "lucide-react";
+import { Link } from "react-router-dom";
+import { contentIndex, getItemIdsForUnit, getShortUnitTitle } from "../content/contentIndex";
+import { BadgeShelf } from "../components/ui/BadgeShelf";
+import { Button } from "../components/ui/Button";
+import { MasteryChip } from "../components/ui/MasteryChip";
+import { ProgressRing } from "../components/ui/ProgressRing";
+import { getUnitMastery } from "../store/mastery";
+import { useProgressStore, xpForLevel } from "../store/progressStore";
+
+export function HomePage() {
+  const progress = useProgressStore((state) => state.itemProgress);
+  const daily = useProgressStore((state) => state.dailyProgress);
+  const dailyGoal = useProgressStore((state) => state.dailyGoal);
+  const streak = useProgressStore((state) => state.streak);
+  const xp = useProgressStore((state) => state.xp);
+  const level = useProgressStore((state) => state.level);
+  const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
+  const dailyPercent = Math.min(100, Math.round((daily.answered / dailyGoal) * 100));
+  const currentLevelXp = xpForLevel(level);
+  const nextLevelXp = xpForLevel(level + 1);
+  const levelPercent = Math.round(((xp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp)) * 100);
+
+  return (
+    <div className="space-y-5">
+      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr_0.9fr]">
+        <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="flex items-start gap-4">
+            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-lg bg-ink text-white">
+              <BookOpen size={34} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-extrabold md:text-3xl">Keep it up!</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
+                You are building mastery by practising, checking explanations, and coming back to due items.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2 text-sm font-bold">
+                <span className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-3 py-2 text-orange-700">
+                  <Flame size={17} /> {streak} day streak
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
+                  <Trophy size={17} /> {xp} XP
+                </span>
+              </div>
+              <div className="mt-4 max-w-sm">
+                <div className="flex justify-between text-xs font-extrabold text-muted">
+                  <span>Level {level}</span>
+                  <span>{Math.max(0, nextLevelXp - xp)} XP to Level {level + 1}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full rounded-full bg-amber-400" style={{ width: `${Math.min(100, Math.max(0, levelPercent))}%` }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-sm font-extrabold">
+                <Target className="text-rose-500" size={18} /> Daily goal
+              </div>
+              <div className="mt-3 text-3xl font-extrabold text-primary">
+                {daily.answered} <span className="text-lg text-muted">/ {dailyGoal} items</span>
+              </div>
+              {daily.completed ? <p className="mt-2 text-sm font-bold text-emerald-600">Goal complete for today</p> : null}
+            </div>
+            <ProgressRing value={dailyPercent} label={`${dailyPercent}%`} color="#4f46e5" />
+          </div>
+          <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${dailyPercent}%` }} />
+          </div>
+        </div>
+
+        <div className="rounded-lg bg-primary p-5 text-white shadow-pop">
+          <div className="flex h-full flex-col justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 text-lg font-extrabold">
+                <BookOpen size={22} /> Continue practising
+              </div>
+              <p className="mt-2 text-sm text-indigo-100">Pick up with a mixed quiz across your covered topics.</p>
+            </div>
+            <Link to="/play/quiz/mixed">
+              <Button className="w-full border border-white/25 bg-white/10 text-white hover:bg-white/20">
+                Continue practising <ArrowRight size={18} />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-extrabold">Your units</h2>
+          <Link className="text-sm font-bold text-primary hover:underline" to="/progress">
+            View progress
+          </Link>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {contentIndex.units.map((unit) => {
+            const mastery = getUnitMastery(unit, progress);
+            return (
+              <article
+                key={unit.id}
+                className="rounded-lg border bg-white p-4 shadow-soft transition hover:-translate-y-0.5 hover:shadow-pop"
+                style={{ borderColor: unit.accent ?? "#dbe3f0" }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div
+                    className="grid h-12 w-12 place-items-center rounded-lg text-lg font-black text-white"
+                    style={{ background: unit.accent }}
+                  >
+                    {unit.number}
+                  </div>
+                  <ProgressRing value={mastery.percent} size={54} stroke={6} color={unit.accent} />
+                </div>
+                <h3 className="mt-4 text-base font-extrabold">Unit {unit.number}</h3>
+                <p className="min-h-10 text-sm font-bold text-ink">{getShortUnitTitle(unit)}</p>
+                <div className="mt-3 flex items-center justify-between text-xs text-muted">
+                  <MasteryChip state={mastery.state} />
+                  <span>
+                    {mastery.known} / {mastery.total} items
+                  </span>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Link to={`/play/flashcards/unit-${unit.id}`}>
+                    <Button variant="secondary" className="w-full px-2">
+                      Flashcards
+                    </Button>
+                  </Link>
+                  <Link to={`/play/quiz/unit-${unit.id}`}>
+                    <Button variant="secondary" className="w-full px-2">
+                      Quiz
+                    </Button>
+                  </Link>
+                </div>
+                <Link
+                  to={`/unit/${unit.id}`}
+                  className="mt-3 inline-flex w-full items-center justify-center gap-1 text-sm font-bold text-primary hover:underline"
+                  aria-label={`Open Unit ${unit.number}`}
+                >
+                  Open unit <ArrowRight size={15} />
+                </Link>
+                <p className="sr-only">{getItemIdsForUnit(unit).length} total items</p>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-lg font-extrabold">Activity shortcuts</h2>
+        <div className="grid gap-3 md:grid-cols-4">
+          <Shortcut to="/play/match/mixed" icon={<Puzzle size={21} />} title="Matching" copy="Pair terms with definitions" />
+          <Shortcut to="/play/memory/mixed" icon={<Grid2X2 size={21} />} title="Memory" copy="Find term-definition pairs" />
+          <Shortcut to="/play/code/mixed" icon={<Code2 size={21} />} title="Code Lab" copy="Practise algorithms and Python" />
+          <Shortcut to="/play/convert" icon={<Calculator size={21} />} title="Conversion trainer" copy="Binary, hex and file sizes" />
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-extrabold">Badges</h2>
+          <span className="text-sm font-bold text-muted">
+            {unlockedBadges.length} / {contentIndex.bank.badges?.length ?? 0} unlocked
+          </span>
+        </div>
+        <div className="rounded-lg border border-line bg-white p-4 shadow-soft">
+          <BadgeShelf unlockedIds={unlockedBadges} compact />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Shortcut({ to, icon, title, copy }: { to: string; icon: React.ReactNode; title: string; copy: string }) {
+  return (
+    <Link to={to} className="rounded-lg border border-line bg-white p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-primary">
+      <div className="flex items-center gap-3">
+        <div className="grid h-11 w-11 place-items-center rounded-lg bg-indigo-50 text-primary">{icon}</div>
+        <div>
+          <h3 className="font-extrabold">{title}</h3>
+          <p className="text-sm text-muted">{copy}</p>
+        </div>
+      </div>
+    </Link>
+  );
+}

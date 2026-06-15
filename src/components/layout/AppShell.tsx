@@ -1,0 +1,85 @@
+import { BookOpen, Flame, Gauge, Home, Layers, Settings, Trophy } from "lucide-react";
+import { useEffect } from "react";
+import { NavLink, Outlet } from "react-router-dom";
+import { useProgressStore } from "../../store/progressStore";
+
+const navItems = [
+  { to: "/", label: "Home", icon: Home },
+  { to: "/progress", label: "Progress", icon: Gauge },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
+export function AppShell() {
+  const { xp, level, streak } = useProgressStore();
+  const settings = useProgressStore((state) => state.settings);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", settings.darkMode);
+    document.documentElement.classList.toggle("reduce-motion", settings.reducedMotion);
+  }, [settings.darkMode, settings.reducedMotion]);
+
+  return (
+    <div className="min-h-screen pb-20 text-ink md:pb-0">
+      <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6">
+          <NavLink to="/" className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
+              <BookOpen size={21} />
+            </span>
+            <span className="text-xl font-extrabold tracking-normal">CS Revision Hub</span>
+          </NavLink>
+
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold transition ${
+                    isActive ? "bg-indigo-50 text-primary" : "text-slate-600 hover:bg-slate-100 hover:text-ink"
+                  }`
+                }
+              >
+                <item.icon size={18} />
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3 text-sm font-bold">
+            <span className="hidden items-center gap-1 sm:inline-flex">
+              <Trophy className="text-amber-500" size={18} /> XP {xp}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Layers className="text-violet-600" size={18} /> Level {level}
+            </span>
+            <span className="hidden items-center gap-1 sm:inline-flex">
+              <Flame className="text-orange-500" size={18} /> {streak} day streak
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-7">
+        <Outlet />
+      </main>
+
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-white md:hidden">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-bold ${
+                isActive ? "text-primary" : "text-slate-500"
+              }`
+            }
+          >
+            <item.icon size={20} />
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
+  );
+}

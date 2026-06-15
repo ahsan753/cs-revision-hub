@@ -1,0 +1,17 @@
+{
+  "name": "CS Revision Hub",
+  "short_name": "CS Revision",
+  "description": "Interactive IGCSE Computer Science revision practice.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fbff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
