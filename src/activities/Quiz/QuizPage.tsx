@@ -1,37 +1,41 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { ProgressRing } from "../../components/ui/ProgressRing";
 import { getDefaultDifficulty, getMcqsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
+import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
+import type { ItemProgress } from "../../store/progressStore";
 import { useProgressStore } from "../../store/progressStore";
 
 export function QuizPage() {
   const { scope: scopeParam } = useParams();
+  const scopeKey = scopeParam ?? "mixed";
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const progress = useProgressStore((state) => state.itemProgress);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const items = useMemo(() => {
-    const now = Date.now();
-    return [...getMcqsForScope(scope)]
-      .filter((item) => (item.type ?? "single") === "single")
-      .sort((a, b) => {
-        const aProgress = progress[a.id];
-        const bProgress = progress[b.id];
-        const aDue = !aProgress || aProgress.nextDue <= now ? 0 : 1;
-        const bDue = !bProgress || bProgress.nextDue <= now ? 0 : 1;
-        return aDue - bDue || getDefaultDifficulty(a.difficulty) - getDefaultDifficulty(b.difficulty);
-      });
-  }, [scope, progress]);
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  const sourceItems = useMemo(() => getMcqsForScope(scope).filter((item) => (item.type ?? "single") === "single"), [scope]);
+  const [items, setItems] = useState(() => sortQuizItems(sourceItems, progress));
 
   const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
 
+  useEffect(() => {
+    setItems(sortQuizItems(sourceItems, progressRef.current));
+    setIndex(0);
+    setSelected(null);
+    setAnswered(false);
+    setCorrectCount(0);
+  }, [scopeKey, sourceItems]);
+
   const current = items[index];
-  const mastery = getMasteryForItemIds(items.map((item) => item.id), progress);
+  const itemIds = useMemo(() => items.map((item) => item.id), [items]);
+  const mastery = getMasteryForItemIds(itemIds, progress);
   const finished = index >= items.length;
 
   if (!current && !finished) {
@@ -57,6 +61,7 @@ export function QuizPage() {
           <Button
             variant="secondary"
             onClick={() => {
+              setItems(sortQuizItems(sourceItems, progressRef.current));
               setIndex(0);
               setSelected(null);
               setAnswered(false);
@@ -222,3 +227,16 @@ export function QuizPage() {
   );
 }
 
+function sortQuizItems(items: MCQ[], progress: Record<string, ItemProgress>): MCQ[] {
+  const now = Date.now();
+  return items
+    .map((item, order) => ({ item, order }))
+    .sort((a, b) => {
+      const aProgress = progress[a.item.id];
+      const bProgress = progress[b.item.id];
+      const aDue = !aProgress || aProgress.nextDue <= now ? 0 : 1;
+      const bDue = !bProgress || bProgress.nextDue <= now ? 0 : 1;
+      return aDue - bDue || a.order - b.order;
+    })
+    .map(({ item }) => item);
+}
