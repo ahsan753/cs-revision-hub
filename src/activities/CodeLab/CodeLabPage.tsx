@@ -155,7 +155,7 @@ function FillBlank({ task, onResult }: { task: FillBlankTask; onResult: (correct
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const correct = task.blanks.every((blank) => {
     const value = answers[blank.id] ?? "";
-    return blank.accept.some((accepted) => (blank.caseSensitive ? value.trim() === accepted : normaliseText(value) === normaliseText(accepted)));
+    return isBlankAnswerCorrect(task, blank, value);
   });
   return (
     <div className="space-y-4">
@@ -177,6 +177,11 @@ function FillBlank({ task, onResult }: { task: FillBlankTask; onResult: (correct
       </Button>
     </div>
   );
+}
+
+function isBlankAnswerCorrect(task: FillBlankTask, blank: FillBlankTask["blanks"][number], value: string) {
+  const caseSensitive = task.language !== "pseudocode" && blank.caseSensitive;
+  return blank.accept.some((accepted) => (caseSensitive ? value.trim() === accepted : normaliseText(value) === normaliseText(accepted)));
 }
 
 function Parsons({ task, onResult }: { task: ParsonsTask; onResult: (correct: boolean, message: string) => void }) {
@@ -231,4 +236,3 @@ function CodeBlock({ code }: { code: string }) {
     </pre>
   );
 }
-

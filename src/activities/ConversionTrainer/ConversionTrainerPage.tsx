@@ -206,7 +206,7 @@ function generateProblem(mode: Mode): Problem {
       id: `${mode}-${a}-${b}`,
       prompt: `Add ${toBinary8(a)} + ${toBinary8(b)} in an 8-bit register. Include overflow if it occurs.`,
       answer,
-      accept: [answer, toBinary8(result), overflow ? `${toBinary8(result)} with overflow` : toBinary8(result)],
+      accept: overflow ? [answer, `${toBinary8(result)} with overflow`] : [answer, toBinary8(result)],
       working: [`${a} + ${b} = ${total}`, `8-bit stored result = ${toBinary8(result)}`, `Overflow = ${overflow ? "yes" : "no"}`],
     };
   }
@@ -273,4 +273,3 @@ function toBinary8(value: number) {
 function placeValues(value: number) {
   return [128, 64, 32, 16, 8, 4, 2, 1].filter((place) => (value & place) !== 0);
 }
-
