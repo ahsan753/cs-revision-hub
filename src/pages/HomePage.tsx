@@ -6,7 +6,16 @@ import { Button } from "../components/ui/Button";
 import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { getUnitMastery } from "../store/mastery";
+import type { ItemProgress } from "../store/progressStore";
 import { useProgressStore, xpForLevel } from "../store/progressStore";
+
+interface DailySuggestion {
+  title: string;
+  copy: string;
+  to: string;
+  icon: React.ReactNode;
+  tone: string;
+}
 
 export function HomePage() {
   const progress = useProgressStore((state) => state.itemProgress);
@@ -20,6 +29,8 @@ export function HomePage() {
   const currentLevelXp = xpForLevel(level);
   const nextLevelXp = xpForLevel(level + 1);
   const levelPercent = Math.round(((xp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp)) * 100);
+  const dailySuggestions = getDailySuggestions(progress);
+  const remainingDailyItems = Math.max(0, dailyGoal - daily.answered);
 
   return (
     <div className="space-y-5">
@@ -56,20 +67,40 @@ export function HomePage() {
         </div>
 
         <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
               <div className="flex items-center gap-2 text-sm font-extrabold">
-                <Target className="text-rose-500" size={18} /> Daily goal
+                <Target className="text-rose-500" size={18} /> Daily goals
               </div>
-              <div className="mt-3 text-3xl font-extrabold text-primary">
-                {daily.answered} <span className="text-lg text-muted">/ {dailyGoal} items</span>
-              </div>
-              {daily.completed ? <p className="mt-2 text-sm font-bold text-emerald-600">Goal complete for today</p> : null}
+              <p className="mt-2 text-sm leading-5 text-muted">
+                {daily.completed ? "Goal complete for today. Pick another activity if you want to stretch." : `${remainingDailyItems} items left today. Choose an activity to begin.`}
+              </p>
             </div>
-            <ProgressRing value={dailyPercent} label={`${dailyPercent}%`} color="#4f46e5" />
+            <div className="shrink-0 text-center">
+              <ProgressRing value={dailyPercent} label={`${dailyPercent}%`} color="#4f46e5" />
+              <p className="mt-1 text-xs font-extrabold text-muted">
+                {daily.answered}/{dailyGoal}
+              </p>
+            </div>
           </div>
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
+          <div className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100" aria-label={`${daily.answered} of ${dailyGoal} daily items completed`}>
             <div className="h-full rounded-full bg-primary" style={{ width: `${dailyPercent}%` }} />
+          </div>
+          <div className="mt-4 space-y-2">
+            {dailySuggestions.map((suggestion) => (
+              <Link
+                key={suggestion.title}
+                to={suggestion.to}
+                className="group flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-slate-50"
+              >
+                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${suggestion.tone}`}>{suggestion.icon}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-extrabold text-ink">{suggestion.title}</span>
+                  <span className="block truncate text-xs font-semibold text-muted">{suggestion.copy}</span>
+                </span>
+                <ArrowRight size={16} className="shrink-0 text-muted transition group-hover:translate-x-0.5 group-hover:text-primary" />
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -172,6 +203,93 @@ export function HomePage() {
       </section>
     </div>
   );
+}
+
+function getDailySuggestions(progress: Record<string, ItemProgress>): DailySuggestion[] {
+  const unitSummaries = contentIndex.units.map((unit) => ({
+    unit,
+    mastery: getUnitMastery(unit, progress),
+  }));
+  const focus = [...unitSummaries]
+    .filter(({ mastery }) => mastery.percent < 100)
+    .sort((a, b) => a.mastery.percent - b.mastery.percent || a.unit.number - b.unit.number)[0] ?? unitSummaries[0];
+  const now = Date.now();
+  const dueCount = contentIndex.allItemIds.filter((id) => {
+    const itemProgress = progress[id];
+    return itemProgress && itemProgress.attempts > 0 && itemProgress.nextDue <= now;
+  }).length;
+
+  if (!focus) {
+    return [
+      {
+        title: "Take a mixed quiz",
+        copy: "Keep practising across the syllabus",
+        to: "/play/quiz/mixed",
+        icon: <Target size={18} />,
+        tone: "bg-indigo-50 text-primary",
+      },
+      {
+        title: "Try flashcards",
+        copy: "Refresh key definitions",
+        to: "/play/flashcards/mixed",
+        icon: <BookOpen size={18} />,
+        tone: "bg-blue-50 text-blue-700",
+      },
+      {
+        title: "Use the conversion trainer",
+        copy: "Practise binary, hex, storage and sound",
+        to: "/play/convert",
+        icon: <Calculator size={18} />,
+        tone: "bg-pink-50 text-pink-700",
+      },
+    ];
+  }
+
+  const focusScope = `unit-${focus.unit.id}`;
+  const suggestions: DailySuggestion[] = [
+    {
+      title: `Do the Unit ${focus.unit.number} quiz`,
+      copy: getShortUnitTitle(focus.unit),
+      to: `/play/quiz/${focusScope}`,
+      icon: <Target size={18} />,
+      tone: "bg-indigo-50 text-primary",
+    },
+    dueCount >= 3
+      ? {
+          title: "Review due flashcards",
+          copy: `${dueCount} items are ready to revisit`,
+          to: "/play/flashcards/mixed",
+          icon: <BookOpen size={18} />,
+          tone: "bg-blue-50 text-blue-700",
+        }
+      : {
+          title: `Try Unit ${focus.unit.number} flashcards`,
+          copy: "Build confidence with key terms",
+          to: `/play/flashcards/${focusScope}`,
+          icon: <BookOpen size={18} />,
+          tone: "bg-blue-50 text-blue-700",
+        },
+  ];
+
+  if ((focus.unit.codeTasks?.length ?? 0) > 0) {
+    suggestions.push({
+      title: `Practise Unit ${focus.unit.number} code`,
+      copy: "Solve a short programming task",
+      to: `/play/code/${focusScope}`,
+      icon: <Code2 size={18} />,
+      tone: "bg-violet-50 text-violet-700",
+    });
+  } else {
+    suggestions.push({
+      title: `Match Unit ${focus.unit.number} terms`,
+      copy: "Pair concepts with definitions",
+      to: `/play/match/${focusScope}`,
+      icon: <Puzzle size={18} />,
+      tone: "bg-amber-50 text-amber-700",
+    });
+  }
+
+  return suggestions;
 }
 
 function Shortcut({ to, icon, title, copy }: { to: string; icon: React.ReactNode; title: string; copy: string }) {
