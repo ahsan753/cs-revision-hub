@@ -1,4 +1,12 @@
-import { BookOpen, Flame, Gauge, Home, Layers, Settings, Trophy } from "lucide-react";
+import {
+  BookOpen,
+  Flame,
+  Gauge,
+  Home,
+  Layers,
+  Settings,
+  Trophy,
+} from "lucide-react";
 import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useProgressStore } from "../../store/progressStore";
@@ -15,7 +23,10 @@ export function AppShell() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
-    document.documentElement.classList.toggle("reduce-motion", settings.reducedMotion);
+    document.documentElement.classList.toggle(
+      "reduce-motion",
+      settings.reducedMotion,
+    );
   }, [settings.darkMode, settings.reducedMotion]);
 
   return (
@@ -26,17 +37,24 @@ export function AppShell() {
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
               <BookOpen size={21} />
             </span>
-            <span className="text-xl font-extrabold tracking-normal">CS Revision Hub</span>
+            <span className="text-xl font-extrabold tracking-normal">
+              CS Revision Hub
+            </span>
           </NavLink>
 
-          <nav className="hidden items-center gap-1 md:flex" aria-label="Main navigation">
+          <nav
+            className="hidden items-center gap-1 md:flex"
+            aria-label="Main navigation"
+          >
             {navItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
                   `inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-bold transition ${
-                    isActive ? "bg-indigo-50 text-primary" : "text-slate-600 hover:bg-slate-100 hover:text-ink"
+                    isActive
+                      ? "bg-indigo-50 text-primary"
+                      : "text-slate-600 hover:bg-slate-100 hover:text-ink"
                   }`
                 }
               >
@@ -54,7 +72,8 @@ export function AppShell() {
               <Layers className="text-violet-600" size={18} /> Level {level}
             </span>
             <span className="hidden items-center gap-1 sm:inline-flex">
-              <Flame className="text-orange-500" size={18} /> {streak} day streak
+              <Flame className="text-orange-500" size={18} /> {streak} day
+              streak
             </span>
           </div>
         </div>

@@ -8,6 +8,11 @@ const styles: Record<MasteryState, string> = {
 };
 
 export function MasteryChip({ state }: { state: MasteryState }) {
-  return <span className={`rounded-md px-2.5 py-1 text-xs font-bold ${styles[state]}`}>{state}</span>;
+  return (
+    <span
+      className={`rounded-md px-2.5 py-1 text-xs font-bold ${styles[state]}`}
+    >
+      {state}
+    </span>
+  );
 }
-

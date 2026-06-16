@@ -1,5 +1,11 @@
 import rawContent from "../../content-bank.json";
-import type { CodeTask, ContentBank, Flashcard, MCQ, Unit } from "../data/contentTypes";
+import type {
+  CodeTask,
+  ContentBank,
+  Flashcard,
+  MCQ,
+  Unit,
+} from "../data/contentTypes";
 
 export type Scope =
   | { kind: "unit"; unitId: string }
@@ -35,7 +41,11 @@ function buildIndex(): IndexedContent {
     for (const subtopic of unit.subtopics) {
       subtopicToUnit.set(subtopic.id, unit);
     }
-    for (const item of [...unit.flashcards, ...unit.mcqs, ...(unit.codeTasks ?? [])]) {
+    for (const item of [
+      ...unit.flashcards,
+      ...unit.mcqs,
+      ...(unit.codeTasks ?? []),
+    ]) {
       if (seenIds.has(item.id)) {
         throw new Error(`Duplicate content id: ${item.id}`);
       }
@@ -55,7 +65,9 @@ function buildIndex(): IndexedContent {
     allFlashcards,
     allMcqs,
     allCodeTasks,
-    allItemIds: [...allFlashcards, ...allMcqs, ...allCodeTasks].map((item) => item.id),
+    allItemIds: [...allFlashcards, ...allMcqs, ...allCodeTasks].map(
+      (item) => item.id,
+    ),
   };
 }
 
@@ -63,9 +75,13 @@ export const contentIndex = buildIndex();
 
 export function parseScope(scopeParam?: string): Scope {
   if (!scopeParam || scopeParam === "mixed") return { kind: "mixed" };
-  if (scopeParam.startsWith("unit-")) return { kind: "unit", unitId: scopeParam.replace("unit-", "") };
+  if (scopeParam.startsWith("unit-"))
+    return { kind: "unit", unitId: scopeParam.replace("unit-", "") };
   if (scopeParam.startsWith("subtopic-")) {
-    return { kind: "subtopic", subtopicId: scopeParam.replace("subtopic-", "") };
+    return {
+      kind: "subtopic",
+      subtopicId: scopeParam.replace("subtopic-", ""),
+    };
   }
   return { kind: "mixed" };
 }
@@ -78,35 +94,49 @@ export function getScopeLabel(scope: Scope): string {
   }
   const unit = contentIndex.subtopicToUnit.get(scope.subtopicId);
   const subtopic = unit?.subtopics.find((item) => item.id === scope.subtopicId);
-  return subtopic ? `${scope.subtopicId} ${subtopic.title}` : "Subtopic practice";
+  return subtopic
+    ? `${scope.subtopicId} ${subtopic.title}`
+    : "Subtopic practice";
 }
 
 export function getFlashcardsForScope(scope: Scope): Flashcard[] {
   if (scope.kind === "mixed") return contentIndex.allFlashcards;
-  if (scope.kind === "unit") return contentIndex.unitsById.get(scope.unitId)?.flashcards ?? [];
+  if (scope.kind === "unit")
+    return contentIndex.unitsById.get(scope.unitId)?.flashcards ?? [];
   const unit = contentIndex.subtopicToUnit.get(scope.subtopicId);
-  return unit?.flashcards.filter((item) => item.subtopic === scope.subtopicId) ?? [];
+  return (
+    unit?.flashcards.filter((item) => item.subtopic === scope.subtopicId) ?? []
+  );
 }
 
 export function getMcqsForScope(scope: Scope): MCQ[] {
   if (scope.kind === "mixed") return contentIndex.allMcqs;
-  if (scope.kind === "unit") return contentIndex.unitsById.get(scope.unitId)?.mcqs ?? [];
+  if (scope.kind === "unit")
+    return contentIndex.unitsById.get(scope.unitId)?.mcqs ?? [];
   const unit = contentIndex.subtopicToUnit.get(scope.subtopicId);
   return unit?.mcqs.filter((item) => item.subtopic === scope.subtopicId) ?? [];
 }
 
 export function getCodeTasksForScope(scope: Scope): CodeTask[] {
   if (scope.kind === "mixed") return contentIndex.allCodeTasks;
-  if (scope.kind === "unit") return contentIndex.unitsById.get(scope.unitId)?.codeTasks ?? [];
+  if (scope.kind === "unit")
+    return contentIndex.unitsById.get(scope.unitId)?.codeTasks ?? [];
   const unit = contentIndex.subtopicToUnit.get(scope.subtopicId);
-  return unit?.codeTasks?.filter((item) => item.subtopic === scope.subtopicId) ?? [];
+  return (
+    unit?.codeTasks?.filter((item) => item.subtopic === scope.subtopicId) ?? []
+  );
 }
 
 export function getItemIdsForUnit(unit: Unit): string[] {
-  return [...unit.flashcards, ...unit.mcqs, ...(unit.codeTasks ?? [])].map((item) => item.id);
+  return [...unit.flashcards, ...unit.mcqs, ...(unit.codeTasks ?? [])].map(
+    (item) => item.id,
+  );
 }
 
-export function getItemIdsForSubtopic(unit: Unit, subtopicId: string): string[] {
+export function getItemIdsForSubtopic(
+  unit: Unit,
+  subtopicId: string,
+): string[] {
   return [
     ...unit.flashcards.filter((item) => item.subtopic === subtopicId),
     ...unit.mcqs.filter((item) => item.subtopic === subtopicId),

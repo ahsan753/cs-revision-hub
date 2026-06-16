@@ -1,9 +1,21 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, Shuffle, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  RotateCcw,
+  Shuffle,
+  XCircle,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
+import {
+  getDefaultDifficulty,
+  getFlashcardsForScope,
+  getScopeLabel,
+  parseScope,
+} from "../../content/contentIndex";
 import { useProgressStore } from "../../store/progressStore";
 
 function shuffled<T>(items: T[]) {
@@ -20,14 +32,28 @@ export function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
+  const recordDailyTaskCompletion = useProgressStore(
+    (state) => state.recordDailyTaskCompletion,
+  );
 
   const current = cards[index];
   const flipCard = () => setFlipped((value) => !value);
 
   useEffect(() => {
+    setCards(sourceCards);
+    setIndex(0);
+    setFlipped(false);
+    setRatedIds(new Set());
+  }, [sourceCards]);
+
+  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.key !== " " && event.code !== "Space") || event.repeat || !current) return;
+      if (
+        (event.key !== " " && event.code !== "Space") ||
+        event.repeat ||
+        !current
+      )
+        return;
 
       const target = event.target;
       if (target instanceof HTMLElement) {
@@ -36,7 +62,9 @@ export function FlashcardsPage() {
           target instanceof HTMLTextAreaElement ||
           target instanceof HTMLSelectElement ||
           target.isContentEditable;
-        const isControl = target.closest("button, a, input, textarea, select, [role='button']");
+        const isControl = target.closest(
+          "button, a, input, textarea, select, [role='button']",
+        );
 
         if (isTextInput || isControl) return;
       }
@@ -88,11 +116,17 @@ export function FlashcardsPage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/" className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100" aria-label="Back to dashboard">
+          <Link
+            to="/"
+            className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
+            aria-label="Back to dashboard"
+          >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <p className="text-sm font-bold text-muted">{getScopeLabel(scope)}</p>
+            <p className="text-sm font-bold text-muted">
+              {getScopeLabel(scope)}
+            </p>
             <h1 className="text-xl font-extrabold">Flashcards</h1>
           </div>
         </div>
@@ -132,11 +166,15 @@ export function FlashcardsPage() {
                   className="grid min-h-[320px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8 text-center shadow-soft"
                 >
                   <div>
-                    <p className="mb-5 text-xs font-extrabold uppercase text-muted">{flipped ? "Back" : "Front"}</p>
+                    <p className="mb-5 text-xs font-extrabold uppercase text-muted">
+                      {flipped ? "Back" : "Front"}
+                    </p>
                     <p className="text-2xl font-extrabold leading-snug md:text-4xl">
                       {flipped ? current.definition : current.term}
                     </p>
-                    <p className="mt-6 text-sm font-bold text-primary">Tap or press Space to flip</p>
+                    <p className="mt-6 text-sm font-bold text-primary">
+                      Tap or press Space to flip
+                    </p>
                   </div>
                 </motion.div>
               </AnimatePresence>

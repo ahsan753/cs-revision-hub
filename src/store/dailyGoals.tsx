@@ -13,18 +13,27 @@ export interface DailySuggestion {
   tone: string;
 }
 
-export function getDailySuggestions(progress: Record<string, ItemProgress>): DailySuggestion[] {
+export function getDailySuggestions(
+  progress: Record<string, ItemProgress>,
+): DailySuggestion[] {
   const unitSummaries = contentIndex.units.map((unit) => ({
     unit,
     mastery: getUnitMastery(unit, progress),
   }));
-  const focus = [...unitSummaries]
-    .filter(({ mastery }) => mastery.percent < 100)
-    .sort((a, b) => a.mastery.percent - b.mastery.percent || a.unit.number - b.unit.number)[0] ?? unitSummaries[0];
+  const focus =
+    [...unitSummaries]
+      .filter(({ mastery }) => mastery.percent < 100)
+      .sort(
+        (a, b) =>
+          a.mastery.percent - b.mastery.percent ||
+          a.unit.number - b.unit.number,
+      )[0] ?? unitSummaries[0];
   const now = Date.now();
   const dueCount = contentIndex.allItemIds.filter((id) => {
     const itemProgress = progress[id];
-    return itemProgress && itemProgress.attempts > 0 && itemProgress.nextDue <= now;
+    return (
+      itemProgress && itemProgress.attempts > 0 && itemProgress.nextDue <= now
+    );
   }).length;
 
   if (!focus) {

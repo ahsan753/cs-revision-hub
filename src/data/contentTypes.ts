@@ -94,4 +94,3 @@ export interface PredictOutputTask extends BaseTask {
 }
 
 export type ContentItem = Flashcard | MCQ | CodeTask;
-

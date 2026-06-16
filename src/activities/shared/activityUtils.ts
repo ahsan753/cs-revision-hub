@@ -11,4 +11,3 @@ export function takeRound(items: Flashcard[], target = 6) {
 export function normaliseText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
-

@@ -1,9 +1,16 @@
 import type { Unit } from "../data/contentTypes";
-import { getItemIdsForSubtopic, getItemIdsForUnit } from "../content/contentIndex";
+import {
+  getItemIdsForSubtopic,
+  getItemIdsForUnit,
+} from "../content/contentIndex";
 import type { ItemProgress } from "./progressStore";
 import { isKnown } from "./progressStore";
 
-export type MasteryState = "Not started" | "Learning" | "Practising" | "Mastered";
+export type MasteryState =
+  | "Not started"
+  | "Learning"
+  | "Practising"
+  | "Mastered";
 
 export interface MasterySummary {
   state: MasteryState;
@@ -30,7 +37,10 @@ export function getMasteryForItemIds(
   return { state, total, attempted, known, percent };
 }
 
-export function getUnitMastery(unit: Unit, progress: Record<string, ItemProgress>) {
+export function getUnitMastery(
+  unit: Unit,
+  progress: Record<string, ItemProgress>,
+) {
   return getMasteryForItemIds(getItemIdsForUnit(unit), progress);
 }
 
@@ -39,6 +49,8 @@ export function getSubtopicMastery(
   subtopicId: string,
   progress: Record<string, ItemProgress>,
 ) {
-  return getMasteryForItemIds(getItemIdsForSubtopic(unit, subtopicId), progress);
+  return getMasteryForItemIds(
+    getItemIdsForSubtopic(unit, subtopicId),
+    progress,
+  );
 }
-

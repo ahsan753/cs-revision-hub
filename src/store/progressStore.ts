@@ -3,7 +3,13 @@ import { contentIndex } from "../content/contentIndex";
 import { getSubtopicMastery, getUnitMastery } from "./mastery";
 import { clearProgress, readProgress, writeProgress } from "./storage";
 
-export type ActivityType = "flashcards" | "quiz" | "match" | "memory" | "code" | "convert";
+export type ActivityType =
+  | "flashcards"
+  | "quiz"
+  | "match"
+  | "memory"
+  | "code"
+  | "convert";
 
 export interface ActivityResult {
   itemId: string;
@@ -16,6 +22,7 @@ export interface ItemProgress {
   itemId: string;
   attempts: number;
   correctCount: number;
+  correctAttempts: number;
   latestCorrect: boolean;
   leitnerBox: number;
   nextDue: number;
@@ -52,7 +59,7 @@ interface ProgressActions {
   refreshDailyProgress: () => void;
   setDailyGoal: (goal: number) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
-  importProgress: (snapshot: ProgressSnapshot) => boolean;
+  importProgress: (snapshot: unknown) => boolean;
   resetProgress: () => void;
 }
 
@@ -108,7 +115,48 @@ function freshProgress(): ProgressSnapshot {
   };
 }
 
-function normaliseSnapshot(snapshot: ProgressSnapshot | null): ProgressSnapshot {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
+  if (!isRecord(value)) return false;
+  if (value.version !== 1) return false;
+  if (
+    typeof value.xp !== "number" ||
+    typeof value.level !== "number" ||
+    typeof value.streak !== "number" ||
+    typeof value.dailyGoal !== "number"
+  ) {
+    return false;
+  }
+  if (
+    !isRecord(value.dailyProgress) ||
+    !isRecord(value.settings) ||
+    !isRecord(value.itemProgress)
+  )
+    return false;
+  if (!Array.isArray(value.unlockedBadges) || !Array.isArray(value.history))
+    return false;
+
+  return true;
+}
+
+function normaliseItemProgress(progress: Record<string, ItemProgress>) {
+  return Object.fromEntries(
+    Object.entries(progress).map(([id, item]) => [
+      id,
+      {
+        ...item,
+        correctAttempts: item.correctAttempts ?? Math.max(0, item.correctCount),
+      },
+    ]),
+  );
+}
+
+function normaliseSnapshot(
+  snapshot: ProgressSnapshot | null,
+): ProgressSnapshot {
   if (!snapshot || snapshot.version !== 1) return freshProgress();
   const base = freshProgress();
   const merged: ProgressSnapshot = {
@@ -123,7 +171,7 @@ function normaliseSnapshot(snapshot: ProgressSnapshot | null): ProgressSnapshot 
       ...snapshot.settings,
     },
     unlockedBadges: snapshot.unlockedBadges ?? [],
-    itemProgress: snapshot.itemProgress ?? {},
+    itemProgress: normaliseItemProgress(snapshot.itemProgress ?? {}),
     history: snapshot.history ?? [],
   };
   if (merged.dailyProgress.date !== todayKey()) {
@@ -142,12 +190,21 @@ function normaliseSnapshot(snapshot: ProgressSnapshot | null): ProgressSnapshot 
 }
 
 function freshDailyProgress() {
-  return { date: todayKey(), answered: 0, xp: 0, completed: false, completedTasks: [] };
+  return {
+    date: todayKey(),
+    answered: 0,
+    xp: 0,
+    completed: false,
+    completedTasks: [],
+  };
 }
 
-function currentDailyProgress(dailyProgress: ProgressSnapshot["dailyProgress"]) {
+function currentDailyProgress(
+  dailyProgress: ProgressSnapshot["dailyProgress"],
+) {
   if (dailyProgress.date !== todayKey()) return freshDailyProgress();
-  if (!dailyProgress.completedTasks) return { ...dailyProgress, completedTasks: [] };
+  if (!dailyProgress.completedTasks)
+    return { ...dailyProgress, completedTasks: [] };
   return dailyProgress;
 }
 
@@ -158,10 +215,14 @@ function nextItemProgress(
   const currentBox = previous?.leitnerBox ?? 1;
   const leitnerBox = result.correct ? Math.min(5, currentBox + 1) : 1;
   const nextDue = result.timestamp + intervals[leitnerBox];
+  const correctAttempts =
+    (previous?.correctAttempts ?? Math.max(0, previous?.correctCount ?? 0)) +
+    (result.correct ? 1 : 0);
 
   return {
     itemId: result.itemId,
     attempts: (previous?.attempts ?? 0) + 1,
+    correctAttempts,
     correctCount: result.correct
       ? (previous?.correctCount ?? 0) + 1
       : Math.max(0, (previous?.correctCount ?? 0) - 1),
@@ -174,7 +235,21 @@ function nextItemProgress(
 }
 
 export function isKnown(progress?: ItemProgress) {
-  return Boolean(progress && progress.correctCount >= 2 && progress.latestCorrect);
+  return Boolean(
+    progress && progress.correctCount >= 2 && progress.latestCorrect,
+  );
+}
+
+export function getItemAccuracyPercent(progress: {
+  attempts: number;
+  correctAttempts?: number;
+  correctCount: number;
+}) {
+  if (progress.attempts <= 0) return 0;
+  return Math.round(
+    ((progress.correctAttempts ?? progress.correctCount) / progress.attempts) *
+      100,
+  );
 }
 
 function withUnlockedBadges(snapshot: ProgressSnapshot): ProgressSnapshot {
@@ -182,16 +257,32 @@ function withUnlockedBadges(snapshot: ProgressSnapshot): ProgressSnapshot {
   const correctHistory = snapshot.history.filter((item) => item.correct);
 
   if (snapshot.history.length > 0) unlocked.add("first-steps");
-  if (correctHistory.filter((item) => item.activity === "convert").length >= 50) unlocked.add("binary-boss");
-  if (correctHistory.filter((item) => item.activity === "code").length >= 10) unlocked.add("loop-wizard");
-  if (correctHistory.filter((item) => item.activity === "quiz").length >= 10) unlocked.add("sharp-shooter");
+  if (correctHistory.filter((item) => item.activity === "convert").length >= 50)
+    unlocked.add("binary-boss");
+  if (correctHistory.filter((item) => item.activity === "code").length >= 10)
+    unlocked.add("loop-wizard");
+  if (correctHistory.filter((item) => item.activity === "quiz").length >= 10)
+    unlocked.add("sharp-shooter");
   if (snapshot.streak >= 7) unlocked.add("perfect-week");
 
   const unit2 = contentIndex.unitsById.get("u2");
   const unit3 = contentIndex.unitsById.get("u3");
-  if (unit2 && getUnitMastery(unit2, snapshot.itemProgress).state === "Mastered") unlocked.add("packet-master");
-  if (unit3 && getSubtopicMastery(unit3, "3.1", snapshot.itemProgress).state === "Mastered") unlocked.add("architect");
-  if (contentIndex.units.some((unit) => getUnitMastery(unit, snapshot.itemProgress).state === "Mastered")) {
+  if (
+    unit2 &&
+    getUnitMastery(unit2, snapshot.itemProgress).state === "Mastered"
+  )
+    unlocked.add("packet-master");
+  if (
+    unit3 &&
+    getSubtopicMastery(unit3, "3.1", snapshot.itemProgress).state === "Mastered"
+  )
+    unlocked.add("architect");
+  if (
+    contentIndex.units.some(
+      (unit) =>
+        getUnitMastery(unit, snapshot.itemProgress).state === "Mastered",
+    )
+  ) {
     unlocked.add("unit-crusher");
   }
 
@@ -232,7 +323,10 @@ export const useProgressStore = create<ProgressState>((set) => {
           settings: state.settings,
           itemProgress: {
             ...state.itemProgress,
-            [result.itemId]: nextItemProgress(state.itemProgress[result.itemId], result),
+            [result.itemId]: nextItemProgress(
+              state.itemProgress[result.itemId],
+              result,
+            ),
           },
           history: [...state.history.slice(-199), result],
         };
@@ -248,7 +342,8 @@ export const useProgressStore = create<ProgressState>((set) => {
         }
         const completedTasks = [...daily.completedTasks, taskId];
         const completedNow = completedTasks.length >= dailyTaskGoal;
-        const streak = !daily.completed && completedNow ? state.streak + 1 : state.streak;
+        const streak =
+          !daily.completed && completedNow ? state.streak + 1 : state.streak;
         return persist({
           ...state,
           streak,
@@ -263,21 +358,31 @@ export const useProgressStore = create<ProgressState>((set) => {
     refreshDailyProgress: () => {
       set((state) => {
         const daily = currentDailyProgress(state.dailyProgress);
-        if (daily.date === state.dailyProgress.date && daily.completedTasks === state.dailyProgress.completedTasks) {
+        if (
+          daily.date === state.dailyProgress.date &&
+          daily.completedTasks === state.dailyProgress.completedTasks
+        ) {
           return state;
         }
         return persist({ ...state, dailyProgress: daily });
       });
     },
     setDailyGoal: (goal) => {
-      set((state) => persist({ ...state, dailyGoal: Math.min(100, Math.max(5, Math.round(goal))) }));
+      set((state) =>
+        persist({
+          ...state,
+          dailyGoal: Math.min(100, Math.max(5, Math.round(goal))),
+        }),
+      );
     },
     updateSettings: (settings) => {
-      set((state) => persist({ ...state, settings: { ...state.settings, ...settings } }));
+      set((state) =>
+        persist({ ...state, settings: { ...state.settings, ...settings } }),
+      );
     },
     importProgress: (snapshot) => {
+      if (!isProgressSnapshot(snapshot)) return false;
       const normalised = normaliseSnapshot(snapshot);
-      if (normalised.version !== 1) return false;
       set(persist(normalised));
       return true;
     },

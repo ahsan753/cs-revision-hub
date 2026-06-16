@@ -1,4 +1,13 @@
-import { ArrowLeft, ArrowRight, BookOpen, Calculator, Code2, Grid2X2, HelpCircle, Puzzle } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  Calculator,
+  Code2,
+  Grid2X2,
+  HelpCircle,
+  Puzzle,
+} from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { MasteryChip } from "../components/ui/MasteryChip";
@@ -27,7 +36,10 @@ export function UnitPage() {
 
   return (
     <div className="space-y-5">
-      <Link to="/" className="inline-flex items-center gap-2 text-sm font-bold text-muted hover:text-primary">
+      <Link
+        to="/"
+        className="inline-flex items-center gap-2 text-sm font-bold text-muted hover:text-primary"
+      >
         <ArrowLeft size={16} /> Dashboard
       </Link>
 
@@ -37,7 +49,9 @@ export function UnitPage() {
             <div>
               <p className="text-sm font-bold text-muted">Unit {unit.number}</p>
               <h1 className="mt-1 text-3xl font-extrabold">{unit.title}</h1>
-              <p className="mt-2 text-sm text-muted">Paper {unit.paper} revision practice</p>
+              <p className="mt-2 text-sm text-muted">
+                Paper {unit.paper} revision practice
+              </p>
             </div>
             <ProgressRing value={unitMastery.percent} color={unit.accent} />
           </div>
@@ -87,7 +101,9 @@ export function UnitPage() {
 
         <div className="rounded-lg border border-line bg-white shadow-soft">
           <div className="border-b border-line p-5">
-            <h2 className="text-lg font-extrabold">{getShortUnitTitle(unit)} subtopics</h2>
+            <h2 className="text-lg font-extrabold">
+              {getShortUnitTitle(unit)} subtopics
+            </h2>
           </div>
           <div className="divide-y divide-line">
             {unit.subtopics.map((subtopic) => {
@@ -100,14 +116,21 @@ export function UnitPage() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-extrabold text-primary">{subtopic.id}</span>
-                      <h3 className="truncate text-base font-extrabold">{subtopic.title}</h3>
+                      <span className="text-sm font-extrabold text-primary">
+                        {subtopic.id}
+                      </span>
+                      <h3 className="truncate text-base font-extrabold">
+                        {subtopic.title}
+                      </h3>
                     </div>
                     <div className="mt-2 flex items-center gap-3">
                       <div className="h-2 w-36 overflow-hidden rounded-full bg-slate-100">
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${mastery.percent}%`, background: unit.accent }}
+                          style={{
+                            width: `${mastery.percent}%`,
+                            background: unit.accent,
+                          }}
                         />
                       </div>
                       <MasteryChip state={mastery.state} />

@@ -2,7 +2,12 @@ import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
+import {
+  getDefaultDifficulty,
+  getFlashcardsForScope,
+  getScopeLabel,
+  parseScope,
+} from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
 import { shuffle, takeRound } from "../shared/activityUtils";
@@ -12,18 +17,28 @@ export function MatchGamePage() {
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
-  const [round, setRound] = useState<Flashcard[]>(() => takeRound(sourceCards, 6));
-  const [definitions, setDefinitions] = useState<Flashcard[]>(() => shuffle(round));
+  const [round, setRound] = useState<Flashcard[]>(() =>
+    takeRound(sourceCards, 6),
+  );
+  const [definitions, setDefinitions] = useState<Flashcard[]>(() =>
+    shuffle(round),
+  );
   const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
   const [matched, setMatched] = useState<Record<string, boolean>>({});
-  const [wrongMatch, setWrongMatch] = useState<{ termId: string; definitionId: string } | null>(null);
+  const [wrongMatch, setWrongMatch] = useState<{
+    termId: string;
+    definitionId: string;
+  } | null>(null);
   const [moves, setMoves] = useState(0);
   const [feedback, setFeedback] = useState("");
-  const wrongMatchTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const wrongMatchTimer = useRef<number | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
+  const recordDailyTaskCompletion = useProgressStore(
+    (state) => state.recordDailyTaskCompletion,
+  );
 
-  const complete = Object.keys(matched).length === round.length && round.length > 0;
+  const complete =
+    Object.keys(matched).length === round.length && round.length > 0;
 
   useEffect(() => {
     return () => {
@@ -32,6 +47,21 @@ export function MatchGamePage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (wrongMatchTimer.current) {
+      window.clearTimeout(wrongMatchTimer.current);
+      wrongMatchTimer.current = null;
+    }
+    const next = takeRound(sourceCards, 6);
+    setRound(next);
+    setDefinitions(shuffle(next));
+    setSelectedTerm(null);
+    setMatched({});
+    setWrongMatch(null);
+    setMoves(0);
+    setFeedback("");
+  }, [sourceCards]);
 
   const showWrongMatch = (termId: string, definitionId: string) => {
     if (wrongMatchTimer.current) {
@@ -97,7 +127,8 @@ export function MatchGamePage() {
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-bold text-muted">
-            Match each term to its definition. Moves: <span className="text-ink">{moves}</span>
+            Match each term to its definition. Moves:{" "}
+            <span className="text-ink">{moves}</span>
           </p>
           <Button variant="ghost" onClick={restart}>
             <RotateCcw size={17} /> New round
@@ -106,7 +137,9 @@ export function MatchGamePage() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3">
-            <h2 className="text-sm font-extrabold uppercase text-muted">Terms</h2>
+            <h2 className="text-sm font-extrabold uppercase text-muted">
+              Terms
+            </h2>
             {round.map((card) => {
               const isWrongMatch = wrongMatch?.termId === card.id;
               return (
@@ -131,7 +164,9 @@ export function MatchGamePage() {
             })}
           </div>
           <div className="space-y-3">
-            <h2 className="text-sm font-extrabold uppercase text-muted">Definitions</h2>
+            <h2 className="text-sm font-extrabold uppercase text-muted">
+              Definitions
+            </h2>
             {definitions.map((card) => {
               const isWrongMatch = wrongMatch?.definitionId === card.id;
               return (
@@ -154,18 +189,33 @@ export function MatchGamePage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-lg bg-slate-50 p-4 text-sm font-bold text-muted" aria-live="polite">
-          {complete ? "Round complete. Nice work." : feedback || "Select a term, then choose its matching definition."}
+        <div
+          className="mt-5 rounded-lg bg-slate-50 p-4 text-sm font-bold text-muted"
+          aria-live="polite"
+        >
+          {complete
+            ? "Round complete. Nice work."
+            : feedback || "Select a term, then choose its matching definition."}
         </div>
       </section>
     </div>
   );
 }
 
-function ActivityHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function ActivityHeader({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-line bg-white p-4 shadow-soft">
-      <Link to="/" className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100" aria-label="Back to dashboard">
+      <Link
+        to="/"
+        className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
+        aria-label="Back to dashboard"
+      >
         <ArrowLeft size={20} />
       </Link>
       <div>

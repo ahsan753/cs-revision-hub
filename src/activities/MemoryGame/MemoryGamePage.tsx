@@ -1,8 +1,13 @@
 import { ArrowLeft, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
+import {
+  getDefaultDifficulty,
+  getFlashcardsForScope,
+  getScopeLabel,
+  parseScope,
+} from "../../content/contentIndex";
 import { useProgressStore } from "../../store/progressStore";
 import { shuffle, takeRound } from "../shared/activityUtils";
 
@@ -23,12 +28,39 @@ export function MemoryGamePage() {
   const [open, setOpen] = useState<string[]>([]);
   const [matched, setMatched] = useState<Record<string, boolean>>({});
   const [moves, setMoves] = useState(0);
+  const closeTimer = useRef<number | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
+  const recordDailyTaskCompletion = useProgressStore(
+    (state) => state.recordDailyTaskCompletion,
+  );
 
-  const complete = deck.length > 0 && Object.keys(matched).length === deck.length / 2;
+  const complete =
+    deck.length > 0 && Object.keys(matched).length === deck.length / 2;
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current) {
+        window.clearTimeout(closeTimer.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+    setDeck(makeDeck(sourceCards));
+    setOpen([]);
+    setMatched({});
+    setMoves(0);
+  }, [sourceCards]);
 
   const restart = () => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
     setDeck(makeDeck(sourceCards));
     setOpen([]);
     setMatched({});
@@ -36,14 +68,17 @@ export function MemoryGamePage() {
   };
 
   const flip = (card: MemoryCard) => {
-    if (matched[card.pairId] || open.includes(card.key) || open.length === 2) return;
+    if (matched[card.pairId] || open.includes(card.key) || open.length === 2)
+      return;
     const nextOpen = [...open, card.key];
     setOpen(nextOpen);
     if (nextOpen.length === 2) {
       setMoves((value) => value + 1);
       const first = deck.find((item) => item.key === nextOpen[0]);
       const second = card;
-      const correct = Boolean(first && first.pairId === second.pairId && first.kind !== second.kind);
+      const correct = Boolean(
+        first && first.pairId === second.pairId && first.kind !== second.kind,
+      );
       recordAnswer(
         {
           itemId: second.pairId,
@@ -59,9 +94,15 @@ export function MemoryGamePage() {
         if (Object.keys(nextMatched).length === deck.length / 2) {
           recordDailyTaskCompletion(location.pathname);
         }
-        window.setTimeout(() => setOpen([]), 350);
+        closeTimer.current = window.setTimeout(() => {
+          setOpen([]);
+          closeTimer.current = null;
+        }, 350);
       } else {
-        window.setTimeout(() => setOpen([]), 850);
+        closeTimer.current = window.setTimeout(() => {
+          setOpen([]);
+          closeTimer.current = null;
+        }, 850);
       }
     }
   };
@@ -81,11 +122,17 @@ export function MemoryGamePage() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
-          <Link to="/" className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100" aria-label="Back to dashboard">
+          <Link
+            to="/"
+            className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
+            aria-label="Back to dashboard"
+          >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <p className="text-sm font-bold text-muted">{getScopeLabel(scope)}</p>
+            <p className="text-sm font-bold text-muted">
+              {getScopeLabel(scope)}
+            </p>
             <h1 className="text-xl font-extrabold">Memory game</h1>
           </div>
         </div>
@@ -97,7 +144,11 @@ export function MemoryGamePage() {
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <div className="mb-4 flex items-center justify-between gap-3">
           <p className="text-sm font-bold text-muted">Moves: {moves}</p>
-          <p className="text-sm font-bold text-primary">{complete ? "Grid complete" : `${Object.keys(matched).length} / ${deck.length / 2} pairs`}</p>
+          <p className="text-sm font-bold text-primary">
+            {complete
+              ? "Grid complete"
+              : `${Object.keys(matched).length} / ${deck.length / 2} pairs`}
+          </p>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
           {deck.map((card) => {
@@ -124,12 +175,26 @@ export function MemoryGamePage() {
   );
 }
 
-function makeDeck(items: ReturnType<typeof getFlashcardsForScope>): MemoryCard[] {
+function makeDeck(
+  items: ReturnType<typeof getFlashcardsForScope>,
+): MemoryCard[] {
   const round = takeRound(items, 6);
   return shuffle(
     round.flatMap((item) => [
-      { key: `${item.id}-term`, pairId: item.id, text: item.term, kind: "term" as const, difficulty: item.difficulty },
-      { key: `${item.id}-definition`, pairId: item.id, text: item.definition, kind: "definition" as const, difficulty: item.difficulty },
+      {
+        key: `${item.id}-term`,
+        pairId: item.id,
+        text: item.term,
+        kind: "term" as const,
+        difficulty: item.difficulty,
+      },
+      {
+        key: `${item.id}-definition`,
+        pairId: item.id,
+        text: item.definition,
+        kind: "definition" as const,
+        difficulty: item.difficulty,
+      },
     ]),
   );
 }

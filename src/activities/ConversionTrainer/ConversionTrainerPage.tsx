@@ -1,5 +1,11 @@
-import { ArrowLeft, CheckCircle2, Calculator, RefreshCw, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Calculator,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useProgressStore } from "../../store/progressStore";
@@ -37,11 +43,18 @@ const modes: { id: Mode; label: string }[] = [
 export function ConversionTrainerPage() {
   const location = useLocation();
   const [mode, setMode] = useState<Mode>("denary-binary");
-  const [problem, setProblem] = useState(() => generateProblem("denary-binary"));
+  const [problem, setProblem] = useState(() =>
+    generateProblem("denary-binary"),
+  );
   const [answer, setAnswer] = useState("");
-  const [result, setResult] = useState<{ correct: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<{
+    correct: boolean;
+    message: string;
+  } | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
+  const recordDailyTaskCompletion = useProgressStore(
+    (state) => state.recordDailyTaskCompletion,
+  );
 
   const setModeAndProblem = (nextMode: Mode) => {
     setMode(nextMode);
@@ -57,8 +70,15 @@ export function ConversionTrainerPage() {
   };
 
   const check = () => {
-    const correct = problem.accept.map(normaliseText).includes(normaliseText(answer));
-    setResult({ correct, message: correct ? "Correct drill answer." : `Expected: ${problem.answer}` });
+    const correct = problem.accept
+      .map(normaliseText)
+      .includes(normaliseText(answer));
+    setResult({
+      correct,
+      message: correct
+        ? "Correct drill answer."
+        : `Expected: ${problem.answer}`,
+    });
     recordAnswer(
       {
         itemId: `convert-${mode}`,
@@ -74,18 +94,26 @@ export function ConversionTrainerPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 rounded-lg border border-line bg-white p-4 shadow-soft">
-        <Link to="/" className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100" aria-label="Back to dashboard">
+        <Link
+          to="/"
+          className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
+          aria-label="Back to dashboard"
+        >
           <ArrowLeft size={20} />
         </Link>
         <div>
-          <p className="text-sm font-bold text-muted">Unit 1 Data Representation</p>
+          <p className="text-sm font-bold text-muted">
+            Unit 1 Data Representation
+          </p>
           <h1 className="text-xl font-extrabold">Conversion trainer</h1>
         </div>
       </div>
 
       <section className="grid gap-4 lg:grid-cols-[280px_1fr_340px]">
         <aside className="rounded-lg border border-line bg-white p-3 shadow-soft">
-          <h2 className="px-2 py-2 text-sm font-extrabold uppercase text-muted">Modes</h2>
+          <h2 className="px-2 py-2 text-sm font-extrabold uppercase text-muted">
+            Modes
+          </h2>
           <div className="space-y-2">
             {modes.map((item) => (
               <button
@@ -105,7 +133,9 @@ export function ConversionTrainerPage() {
               <Calculator size={25} />
             </div>
             <div>
-              <p className="text-sm font-bold text-muted">{modes.find((item) => item.id === mode)?.label}</p>
+              <p className="text-sm font-bold text-muted">
+                {modes.find((item) => item.id === mode)?.label}
+              </p>
               <h2 className="mt-1 text-2xl font-extrabold">{problem.prompt}</h2>
             </div>
           </div>
@@ -131,14 +161,27 @@ export function ConversionTrainerPage() {
         </div>
 
         <aside className="rounded-lg border border-line bg-white shadow-soft">
-          <div className={`border-b border-line p-4 ${result ? (result.correct ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700") : "bg-slate-50 text-muted"}`}>
+          <div
+            className={`border-b border-line p-4 ${result ? (result.correct ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700") : "bg-slate-50 text-muted"}`}
+          >
             <div className="flex items-center gap-2 text-sm font-extrabold">
-              {result ? result.correct ? <CheckCircle2 size={18} /> : <XCircle size={18} /> : <Calculator size={18} />}
+              {result ? (
+                result.correct ? (
+                  <CheckCircle2 size={18} />
+                ) : (
+                  <XCircle size={18} />
+                )
+              ) : (
+                <Calculator size={18} />
+              )}
               {result ? (result.correct ? "Correct" : "Try again") : "Working"}
             </div>
           </div>
           <div className="space-y-4 p-4">
-            <p className="text-sm font-bold text-muted">{result?.message ?? "Check your answer to reveal the worked solution."}</p>
+            <p className="text-sm font-bold text-muted">
+              {result?.message ??
+                "Check your answer to reveal the worked solution."}
+            </p>
             {result ? (
               <div className="space-y-2 rounded-lg bg-slate-50 p-3 font-mono text-xs leading-6">
                 {problem.working.map((line) => (
@@ -162,7 +205,10 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert denary ${value} to 8-bit binary.`,
       answer,
       accept: [answer, answer.replace(/\s/g, "")],
-      working: [`${value} = ${placeValues(value).join(" + ")}`, `8-bit binary = ${answer}`],
+      working: [
+        `${value} = ${placeValues(value).join(" + ")}`,
+        `8-bit binary = ${answer}`,
+      ],
     };
   }
   if (mode === "binary-denary") {
@@ -173,7 +219,10 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert binary ${binary} to denary.`,
       answer: String(value),
       accept: [String(value)],
-      working: [`${binary} = ${placeValues(value).join(" + ")}`, `Denary = ${value}`],
+      working: [
+        `${binary} = ${placeValues(value).join(" + ")}`,
+        `Denary = ${value}`,
+      ],
     };
   }
   if (mode === "denary-hex") {
@@ -184,7 +233,10 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert denary ${value} to hexadecimal.`,
       answer,
       accept: [answer],
-      working: [`${value} ÷ 16 = ${Math.floor(value / 16)} remainder ${value % 16}`, `Hex = ${answer}`],
+      working: [
+        `${value} ÷ 16 = ${Math.floor(value / 16)} remainder ${value % 16}`,
+        `Hex = ${answer}`,
+      ],
     };
   }
   if (mode === "hex-denary") {
@@ -195,7 +247,10 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert hexadecimal ${hex} to denary.`,
       answer: String(value),
       accept: [String(value)],
-      working: [`${hex[0]} x 16 + ${hex[1]} = ${parseInt(hex[0], 16) * 16} + ${parseInt(hex[1], 16)}`, `Denary = ${value}`],
+      working: [
+        `${hex[0]} x 16 + ${hex[1]} = ${parseInt(hex[0], 16) * 16} + ${parseInt(hex[1], 16)}`,
+        `Denary = ${value}`,
+      ],
     };
   }
   if (mode === "binary-add") {
@@ -209,8 +264,14 @@ function generateProblem(mode: Mode): Problem {
       id: `${mode}-${a}-${b}`,
       prompt: `Add ${toBinary8(a)} + ${toBinary8(b)} in an 8-bit register. Include overflow if it occurs.`,
       answer,
-      accept: overflow ? [answer, `${toBinary8(result)} with overflow`] : [answer, toBinary8(result)],
-      working: [`${a} + ${b} = ${total}`, `8-bit stored result = ${toBinary8(result)}`, `Overflow = ${overflow ? "yes" : "no"}`],
+      accept: overflow
+        ? [answer, `${toBinary8(result)} with overflow`]
+        : [answer, toBinary8(result)],
+      working: [
+        `${a} + ${b} = ${total}`,
+        `8-bit stored result = ${toBinary8(result)}`,
+        `Overflow = ${overflow ? "yes" : "no"}`,
+      ],
     };
   }
   if (mode === "shift") {
@@ -222,7 +283,11 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Apply a logical ${left ? "left" : "right"} shift of one place to ${toBinary8(value)}.`,
       answer: toBinary8(result),
       accept: [toBinary8(result), toBinary8(result).replace(/\s/g, "")],
-      working: [left ? "Left shift multiplies by 2." : "Right shift divides by 2.", `${value} becomes ${result}`, `Result = ${toBinary8(result)}`],
+      working: [
+        left ? "Left shift multiplies by 2." : "Right shift divides by 2.",
+        `${value} becomes ${result}`,
+        `Result = ${toBinary8(result)}`,
+      ],
     };
   }
   if (mode === "twos-complement") {
@@ -233,7 +298,13 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Represent ${value} as 8-bit two's complement.`,
       answer: toBinary8(stored),
       accept: [toBinary8(stored), toBinary8(stored).replace(/\s/g, "")],
-      working: value < 0 ? [`256 + (${value}) = ${stored}`, `Binary = ${toBinary8(stored)}`] : [`Positive values use normal 8-bit binary.`, `Binary = ${toBinary8(stored)}`],
+      working:
+        value < 0
+          ? [`256 + (${value}) = ${stored}`, `Binary = ${toBinary8(stored)}`]
+          : [
+              `Positive values use normal 8-bit binary.`,
+              `Binary = ${toBinary8(stored)}`,
+            ],
     };
   }
   const image = Math.random() > 0.5;
@@ -248,7 +319,11 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Calculate the file size in KiB for a ${width} x ${height} bitmap image with ${depth}-bit colour depth.`,
       answer: `${kib} KiB`,
       accept: [String(kib), `${kib} KiB`, `${kib} kib`],
-      working: [`${width} x ${height} x ${depth} bits`, `÷ 8 = ${bytes} bytes`, `÷ 1024 = ${kib} KiB`],
+      working: [
+        `${width} x ${height} x ${depth} bits`,
+        `÷ 8 = ${bytes} bytes`,
+        `÷ 1024 = ${kib} KiB`,
+      ],
     };
   }
   const rate = [8000, 11025, 22050][rand(0, 2)];
@@ -261,7 +336,11 @@ function generateProblem(mode: Mode): Problem {
     prompt: `Calculate the file size in KiB for ${seconds}s sound at ${rate} Hz and ${resolution}-bit sample resolution.`,
     answer: `${kib} KiB`,
     accept: [String(kib), `${kib} KiB`, `${kib} kib`],
-    working: [`${rate} x ${resolution} x ${seconds} bits`, `÷ 8 = ${bytes} bytes`, `÷ 1024 = ${kib} KiB`],
+    working: [
+      `${rate} x ${resolution} x ${seconds} bits`,
+      `÷ 8 = ${bytes} bytes`,
+      `÷ 1024 = ${kib} KiB`,
+    ],
   };
 }
 
@@ -270,7 +349,10 @@ function rand(min: number, max: number) {
 }
 
 function toBinary8(value: number) {
-  return value.toString(2).padStart(8, "0").replace(/(.{4})/, "$1 ");
+  return value
+    .toString(2)
+    .padStart(8, "0")
+    .replace(/(.{4})/, "$1 ");
 }
 
 function placeValues(value: number) {
