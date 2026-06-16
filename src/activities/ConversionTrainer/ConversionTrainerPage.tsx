@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle2, Calculator, RefreshCw, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
@@ -35,11 +35,13 @@ const modes: { id: Mode; label: string }[] = [
 ];
 
 export function ConversionTrainerPage() {
+  const location = useLocation();
   const [mode, setMode] = useState<Mode>("denary-binary");
   const [problem, setProblem] = useState(() => generateProblem("denary-binary"));
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<{ correct: boolean; message: string } | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
 
   const setModeAndProblem = (nextMode: Mode) => {
     setMode(nextMode);
@@ -66,6 +68,7 @@ export function ConversionTrainerPage() {
       },
       2,
     );
+    recordDailyTaskCompletion(location.pathname);
   };
 
   return (

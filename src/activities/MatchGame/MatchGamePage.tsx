@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
@@ -9,30 +9,58 @@ import { shuffle, takeRound } from "../shared/activityUtils";
 
 export function MatchGamePage() {
   const { scope: scopeParam } = useParams();
+  const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
   const [round, setRound] = useState<Flashcard[]>(() => takeRound(sourceCards, 6));
   const [definitions, setDefinitions] = useState<Flashcard[]>(() => shuffle(round));
   const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
   const [matched, setMatched] = useState<Record<string, boolean>>({});
+  const [wrongMatch, setWrongMatch] = useState<{ termId: string; definitionId: string } | null>(null);
   const [moves, setMoves] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const wrongMatchTimer = useRef<ReturnType<typeof window.setTimeout> | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
 
   const complete = Object.keys(matched).length === round.length && round.length > 0;
 
+  useEffect(() => {
+    return () => {
+      if (wrongMatchTimer.current) {
+        window.clearTimeout(wrongMatchTimer.current);
+      }
+    };
+  }, []);
+
+  const showWrongMatch = (termId: string, definitionId: string) => {
+    if (wrongMatchTimer.current) {
+      window.clearTimeout(wrongMatchTimer.current);
+    }
+    setWrongMatch({ termId, definitionId });
+    wrongMatchTimer.current = window.setTimeout(() => {
+      setWrongMatch(null);
+      wrongMatchTimer.current = null;
+    }, 3000);
+  };
+
   const restart = () => {
+    if (wrongMatchTimer.current) {
+      window.clearTimeout(wrongMatchTimer.current);
+      wrongMatchTimer.current = null;
+    }
     const next = takeRound(sourceCards, 6);
     setRound(next);
     setDefinitions(shuffle(next));
     setSelectedTerm(null);
     setMatched({});
+    setWrongMatch(null);
     setMoves(0);
     setFeedback("");
   };
 
   const chooseDefinition = (card: Flashcard) => {
-    if (!selectedTerm || matched[card.id]) return;
+    if (!selectedTerm || wrongMatch || matched[card.id]) return;
     const correct = selectedTerm === card.id;
     setMoves((value) => value + 1);
     recordAnswer(
@@ -45,9 +73,15 @@ export function MatchGamePage() {
       getDefaultDifficulty(card.difficulty),
     );
     if (correct) {
-      setMatched((value) => ({ ...value, [card.id]: true }));
+      setWrongMatch(null);
+      const nextMatched = { ...matched, [card.id]: true };
+      setMatched(nextMatched);
+      if (Object.keys(nextMatched).length === round.length) {
+        recordDailyTaskCompletion(location.pathname);
+      }
       setFeedback("Correct match");
     } else {
+      showWrongMatch(selectedTerm, card.id);
       setFeedback("Try a different definition");
     }
     setSelectedTerm(null);
@@ -73,38 +107,50 @@ export function MatchGamePage() {
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3">
             <h2 className="text-sm font-extrabold uppercase text-muted">Terms</h2>
-            {round.map((card) => (
-              <button
-                key={card.id}
-                disabled={matched[card.id]}
-                onClick={() => setSelectedTerm(card.id)}
-                className={`flex min-h-14 w-full items-center justify-between rounded-lg border p-4 text-left text-sm font-bold transition ${
-                  matched[card.id]
-                    ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                    : selectedTerm === card.id
-                      ? "border-primary bg-indigo-50 text-primary"
-                      : "border-line bg-white hover:border-primary"
-                }`}
-              >
-                {card.term}
-                {matched[card.id] ? <CheckCircle2 size={18} /> : null}
-              </button>
-            ))}
+            {round.map((card) => {
+              const isWrongMatch = wrongMatch?.termId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  disabled={matched[card.id] || Boolean(wrongMatch)}
+                  onClick={() => setSelectedTerm(card.id)}
+                  className={`flex min-h-14 w-full items-center justify-between rounded-lg border p-4 text-left text-sm font-bold transition ${
+                    matched[card.id]
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : isWrongMatch
+                        ? "border-red-400 bg-red-50 text-red-700"
+                        : selectedTerm === card.id
+                          ? "border-primary bg-indigo-50 text-primary"
+                          : "border-line bg-white hover:border-primary"
+                  }`}
+                >
+                  {card.term}
+                  {matched[card.id] ? <CheckCircle2 size={18} /> : null}
+                </button>
+              );
+            })}
           </div>
           <div className="space-y-3">
             <h2 className="text-sm font-extrabold uppercase text-muted">Definitions</h2>
-            {definitions.map((card) => (
-              <button
-                key={card.id}
-                disabled={matched[card.id]}
-                onClick={() => chooseDefinition(card)}
-                className={`min-h-14 w-full rounded-lg border p-4 text-left text-sm leading-6 transition ${
-                  matched[card.id] ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-line bg-white hover:border-primary"
-                }`}
-              >
-                {card.definition}
-              </button>
-            ))}
+            {definitions.map((card) => {
+              const isWrongMatch = wrongMatch?.definitionId === card.id;
+              return (
+                <button
+                  key={card.id}
+                  disabled={matched[card.id] || Boolean(wrongMatch)}
+                  onClick={() => chooseDefinition(card)}
+                  className={`min-h-14 w-full rounded-lg border p-4 text-left text-sm leading-6 transition ${
+                    matched[card.id]
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      : isWrongMatch
+                        ? "border-red-400 bg-red-50 text-red-700"
+                        : "border-line bg-white hover:border-primary"
+                  }`}
+                >
+                  {card.definition}
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -140,4 +186,3 @@ function EmptyActivity({ title }: { title: string }) {
     </div>
   );
 }
-

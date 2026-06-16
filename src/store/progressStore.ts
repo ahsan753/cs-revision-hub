@@ -34,6 +34,7 @@ export interface ProgressSnapshot {
     answered: number;
     xp: number;
     completed: boolean;
+    completedTasks: string[];
   };
   unlockedBadges: string[];
   settings: {
@@ -47,6 +48,8 @@ export interface ProgressSnapshot {
 
 interface ProgressActions {
   recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => void;
+  recordDailyTaskCompletion: (taskId: string) => void;
+  refreshDailyProgress: () => void;
   setDailyGoal: (goal: number) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
   importProgress: (snapshot: ProgressSnapshot) => boolean;
@@ -56,6 +59,7 @@ interface ProgressActions {
 export type ProgressState = ProgressSnapshot & ProgressActions;
 
 const dayMs = 24 * 60 * 60 * 1000;
+export const dailyTaskGoal = 3;
 const intervals: Record<number, number> = {
   1: 0,
   2: dayMs,
@@ -65,7 +69,10 @@ const intervals: Record<number, number> = {
 };
 
 function todayKey(date = new Date()) {
-  return date.toISOString().slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 export function levelFromXp(xp: number) {
@@ -88,6 +95,7 @@ function freshProgress(): ProgressSnapshot {
       answered: 0,
       xp: 0,
       completed: false,
+      completedTasks: [],
     },
     unlockedBadges: [],
     settings: {
@@ -126,10 +134,21 @@ function normaliseSnapshot(snapshot: ProgressSnapshot | null): ProgressSnapshot 
         answered: 0,
         xp: 0,
         completed: false,
+        completedTasks: [],
       },
     };
   }
   return merged;
+}
+
+function freshDailyProgress() {
+  return { date: todayKey(), answered: 0, xp: 0, completed: false, completedTasks: [] };
+}
+
+function currentDailyProgress(dailyProgress: ProgressSnapshot["dailyProgress"]) {
+  if (dailyProgress.date !== todayKey()) return freshDailyProgress();
+  if (!dailyProgress.completedTasks) return { ...dailyProgress, completedTasks: [] };
+  return dailyProgress;
 }
 
 function nextItemProgress(
@@ -192,26 +211,22 @@ export const useProgressStore = create<ProgressState>((set) => {
     ...initial,
     recordAnswer: (result, difficulty = 1) => {
       set((state) => {
-        const daily =
-          state.dailyProgress.date === todayKey()
-            ? state.dailyProgress
-            : { date: todayKey(), answered: 0, xp: 0, completed: false };
+        const daily = currentDailyProgress(state.dailyProgress);
         const gainedXp = result.correct ? 10 * difficulty : 2;
         const answered = daily.answered + 1;
-        const completedNow = answered >= state.dailyGoal;
-        const streak = !daily.completed && completedNow ? state.streak + 1 : state.streak;
         const xp = state.xp + gainedXp;
         const snapshot: ProgressSnapshot = {
           version: 1,
           xp,
           level: levelFromXp(xp),
-          streak,
+          streak: state.streak,
           dailyGoal: state.dailyGoal,
           dailyProgress: {
             date: daily.date,
             answered,
             xp: daily.xp + gainedXp,
-            completed: daily.completed || completedNow,
+            completed: daily.completed,
+            completedTasks: daily.completedTasks,
           },
           unlockedBadges: state.unlockedBadges,
           settings: state.settings,
@@ -222,6 +237,36 @@ export const useProgressStore = create<ProgressState>((set) => {
           history: [...state.history.slice(-199), result],
         };
         return persist(snapshot);
+      });
+    },
+    recordDailyTaskCompletion: (taskId) => {
+      set((state) => {
+        const daily = currentDailyProgress(state.dailyProgress);
+        if (daily.completedTasks.includes(taskId)) {
+          if (daily === state.dailyProgress) return state;
+          return persist({ ...state, dailyProgress: daily });
+        }
+        const completedTasks = [...daily.completedTasks, taskId];
+        const completedNow = completedTasks.length >= dailyTaskGoal;
+        const streak = !daily.completed && completedNow ? state.streak + 1 : state.streak;
+        return persist({
+          ...state,
+          streak,
+          dailyProgress: {
+            ...daily,
+            completed: daily.completed || completedNow,
+            completedTasks,
+          },
+        });
+      });
+    },
+    refreshDailyProgress: () => {
+      set((state) => {
+        const daily = currentDailyProgress(state.dailyProgress);
+        if (daily.date === state.dailyProgress.date && daily.completedTasks === state.dailyProgress.completedTasks) {
+          return state;
+        }
+        return persist({ ...state, dailyProgress: daily });
       });
     },
     setDailyGoal: (goal) => {

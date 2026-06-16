@@ -10,7 +10,6 @@ export function SettingsPage() {
   const [message, setMessage] = useState("");
   const snapshot = useProgressStore();
   const resetProgress = useProgressStore((state) => state.resetProgress);
-  const setDailyGoal = useProgressStore((state) => state.setDailyGoal);
   const updateSettings = useProgressStore((state) => state.updateSettings);
   const importProgress = useProgressStore((state) => state.importProgress);
 
@@ -46,22 +45,6 @@ export function SettingsPage() {
       </div>
 
       {message ? <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm font-bold text-primary">{message}</div> : null}
-
-      <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-extrabold">Daily goal</h2>
-        <p className="mt-2 text-sm text-muted">Choose how many answers count as a completed revision day.</p>
-        <label className="mt-4 block max-w-xs">
-          <span className="text-sm font-bold text-muted">Items per day</span>
-          <input
-            type="number"
-            min={5}
-            max={100}
-            value={snapshot.dailyGoal}
-            onChange={(event) => setDailyGoal(Number(event.target.value))}
-            className="mt-2 min-h-11 w-full rounded-lg border border-line px-3 text-sm font-bold focus:border-primary"
-          />
-        </label>
-      </section>
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-extrabold">Preferences</h2>

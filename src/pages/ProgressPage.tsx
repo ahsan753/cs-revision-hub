@@ -1,19 +1,25 @@
+import { useEffect } from "react";
 import { contentIndex } from "../content/contentIndex";
 import { BadgeShelf } from "../components/ui/BadgeShelf";
 import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { getSubtopicMastery, getUnitMastery } from "../store/mastery";
-import { useProgressStore } from "../store/progressStore";
+import { dailyTaskGoal, useProgressStore } from "../store/progressStore";
 
 export function ProgressPage() {
   const progress = useProgressStore((state) => state.itemProgress);
+  const daily = useProgressStore((state) => state.dailyProgress);
+  const refreshDailyProgress = useProgressStore((state) => state.refreshDailyProgress);
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
   const history = useProgressStore((state) => state.history);
-  const now = Date.now();
-  const attemptedItems = Object.values(progress);
-  const dueCount = attemptedItems.filter((item) => item.nextDue <= now).length;
+  const completedDailyTaskIds = new Set(daily.completedTasks ?? []);
+  const completedDailyTasks = Math.min(dailyTaskGoal, completedDailyTaskIds.size);
   const correctRate = history.length ? Math.round((history.filter((item) => item.correct).length / history.length) * 100) : 0;
   const weakSpots = getWeakSpots(progress).slice(0, 8);
+
+  useEffect(() => {
+    refreshDailyProgress();
+  }, [refreshDailyProgress]);
 
   return (
     <div className="space-y-5">
@@ -23,7 +29,7 @@ export function ProgressPage() {
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <StatCard label="Items due now" value={dueCount} />
+        <StatCard label="Daily goals" value={`${completedDailyTasks}/${dailyTaskGoal} done`} />
         <StatCard label="Attempts recorded" value={history.length} />
         <StatCard label="Correct rate" value={`${correctRate}%`} />
       </section>

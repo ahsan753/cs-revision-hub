@@ -119,3 +119,19 @@ a {
 .card-back {
   transform: rotateY(180deg);
 }
+
+@keyframes result-pop {
+  0% {
+    transform: scale(0.72);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-result-pop {
+  animation: result-pop 260ms ease-out;
+}

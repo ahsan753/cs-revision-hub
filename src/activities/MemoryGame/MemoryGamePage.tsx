@@ -1,6 +1,6 @@
 import { ArrowLeft, RotateCcw } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
 import { useProgressStore } from "../../store/progressStore";
@@ -16,6 +16,7 @@ interface MemoryCard {
 
 export function MemoryGamePage() {
   const { scope: scopeParam } = useParams();
+  const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
   const [deck, setDeck] = useState<MemoryCard[]>(() => makeDeck(sourceCards));
@@ -23,6 +24,7 @@ export function MemoryGamePage() {
   const [matched, setMatched] = useState<Record<string, boolean>>({});
   const [moves, setMoves] = useState(0);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
 
   const complete = deck.length > 0 && Object.keys(matched).length === deck.length / 2;
 
@@ -52,7 +54,11 @@ export function MemoryGamePage() {
         getDefaultDifficulty(second.difficulty),
       );
       if (correct) {
-        setMatched((value) => ({ ...value, [second.pairId]: true }));
+        const nextMatched = { ...matched, [second.pairId]: true };
+        setMatched(nextMatched);
+        if (Object.keys(nextMatched).length === deck.length / 2) {
+          recordDailyTaskCompletion(location.pathname);
+        }
         window.setTimeout(() => setOpen([]), 350);
       } else {
         window.setTimeout(() => setOpen([]), 850);
@@ -127,4 +133,3 @@ function makeDeck(items: ReturnType<typeof getFlashcardsForScope>): MemoryCard[]
     ]),
   );
 }
-

@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, CheckCircle2, RotateCcw, Shuffle, XCircle } from "lucide-react";
-import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { getDefaultDifficulty, getFlashcardsForScope, getScopeLabel, parseScope } from "../../content/contentIndex";
 import { useProgressStore } from "../../store/progressStore";
@@ -12,14 +12,42 @@ function shuffled<T>(items: T[]) {
 
 export function FlashcardsPage() {
   const { scope: scopeParam } = useParams();
+  const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
   const [cards, setCards] = useState(sourceCards);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
 
   const current = cards[index];
+  const flipCard = () => setFlipped((value) => !value);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.key !== " " && event.code !== "Space") || event.repeat || !current) return;
+
+      const target = event.target;
+      if (target instanceof HTMLElement) {
+        const isTextInput =
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement ||
+          target.isContentEditable;
+        const isControl = target.closest("button, a, input, textarea, select, [role='button']");
+
+        if (isTextInput || isControl) return;
+      }
+
+      event.preventDefault();
+      flipCard();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [current]);
 
   if (!current || cards.length === 0) {
     return (
@@ -38,6 +66,9 @@ export function FlashcardsPage() {
   };
 
   const rate = (correct: boolean) => {
+    const nextRatedIds = new Set(ratedIds);
+    nextRatedIds.add(current.id);
+    setRatedIds(nextRatedIds);
     recordAnswer(
       {
         itemId: current.id,
@@ -47,6 +78,9 @@ export function FlashcardsPage() {
       },
       getDefaultDifficulty(current.difficulty),
     );
+    if (nextRatedIds.size >= cards.length) {
+      recordDailyTaskCompletion(location.pathname);
+    }
     move(1);
   };
 
@@ -72,6 +106,7 @@ export function FlashcardsPage() {
               setCards(shuffled(cards));
               setIndex(0);
               setFlipped(false);
+              setRatedIds(new Set());
             }}
           >
             <Shuffle size={17} /> Shuffle
@@ -83,13 +118,7 @@ export function FlashcardsPage() {
         <div className="mx-auto max-w-4xl">
           <button
             className="block w-full rounded-lg text-left"
-            onClick={() => setFlipped((value) => !value)}
-            onKeyDown={(event) => {
-              if (event.key === " ") {
-                event.preventDefault();
-                setFlipped((value) => !value);
-              }
-            }}
+            onClick={flipCard}
             aria-label={flipped ? "Show front of card" : "Show back of card"}
           >
             <div className="relative min-h-[320px] perspective-1000">
@@ -124,17 +153,19 @@ export function FlashcardsPage() {
             ))}
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <Button variant="success" onClick={() => rate(true)}>
-              <CheckCircle2 size={20} /> Got it
-            </Button>
-            <Button variant="warning" onClick={() => rate(false)}>
-              <RotateCcw size={20} /> Almost
-            </Button>
-            <Button variant="danger" onClick={() => rate(false)}>
-              <XCircle size={20} /> Missed
-            </Button>
-          </div>
+          {flipped ? (
+            <div className="mt-6 grid gap-3 md:grid-cols-3">
+              <Button variant="success" onClick={() => rate(true)}>
+                <CheckCircle2 size={20} /> Got it
+              </Button>
+              <Button variant="warning" onClick={() => rate(false)}>
+                <RotateCcw size={20} /> Almost
+              </Button>
+              <Button variant="danger" onClick={() => rate(false)}>
+                <XCircle size={20} /> Missed
+              </Button>
+            </div>
+          ) : null}
 
           <div className="mt-5 flex items-center justify-between">
             <Button variant="ghost" onClick={() => move(-1)}>
@@ -149,4 +180,3 @@ export function FlashcardsPage() {
     </div>
   );
 }
-

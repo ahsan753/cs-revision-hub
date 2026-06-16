@@ -1,19 +1,23 @@
 import { ArrowDown, ArrowLeft, ArrowUp, CheckCircle2, Code2, RotateCcw, XCircle } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { getCodeTasksForScope, getDefaultDifficulty, getScopeLabel, parseScope } from "../../content/contentIndex";
 import type { CodeTask, FillBlankTask, ParsonsTask, PredictOutputTask } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText, shuffle } from "../shared/activityUtils";
 
+type CodeLabResult = { correct: boolean; message: string };
+
 export function CodeLabPage() {
   const { scope: scopeParam } = useParams();
+  const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const tasks = useMemo(() => getCodeTasksForScope(scope), [scope]);
   const [index, setIndex] = useState(0);
-  const [result, setResult] = useState<{ correct: boolean; message: string } | null>(null);
+  const [result, setResult] = useState<CodeLabResult | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordDailyTaskCompletion = useProgressStore((state) => state.recordDailyTaskCompletion);
   const task = tasks[index];
 
   const report = (correct: boolean, message: string) => {
@@ -28,6 +32,7 @@ export function CodeLabPage() {
       },
       getDefaultDifficulty(task.difficulty),
     );
+    recordDailyTaskCompletion(location.pathname);
   };
 
   if (!task) {
@@ -73,7 +78,7 @@ export function CodeLabPage() {
             </div>
           </div>
 
-          <TaskRenderer key={task.id} task={task} onResult={report} />
+          <TaskRenderer key={task.id} task={task} result={result} onDraftChange={() => setResult(null)} onResult={report} />
         </div>
 
         <aside className="rounded-lg border border-line bg-white shadow-soft">
@@ -123,35 +128,81 @@ export function CodeLabPage() {
   );
 }
 
-function TaskRenderer({ task, onResult }: { task: CodeTask; onResult: (correct: boolean, message: string) => void }) {
-  if (task.type === "predict-output") return <PredictOutput task={task} onResult={onResult} />;
-  if (task.type === "fill-blank") return <FillBlank task={task} onResult={onResult} />;
-  return <Parsons task={task} onResult={onResult} />;
+function TaskRenderer({
+  task,
+  result,
+  onDraftChange,
+  onResult,
+}: {
+  task: CodeTask;
+  result: CodeLabResult | null;
+  onDraftChange: () => void;
+  onResult: (correct: boolean, message: string) => void;
+}) {
+  if (task.type === "predict-output") return <PredictOutput task={task} result={result} onDraftChange={onDraftChange} onResult={onResult} />;
+  if (task.type === "fill-blank") return <FillBlank task={task} result={result} onDraftChange={onDraftChange} onResult={onResult} />;
+  return <Parsons task={task} result={result} onDraftChange={onDraftChange} onResult={onResult} />;
 }
 
-function PredictOutput({ task, onResult }: { task: PredictOutputTask; onResult: (correct: boolean, message: string) => void }) {
+function PredictOutput({
+  task,
+  result,
+  onDraftChange,
+  onResult,
+}: {
+  task: PredictOutputTask;
+  result: CodeLabResult | null;
+  onDraftChange: () => void;
+  onResult: (correct: boolean, message: string) => void;
+}) {
   const [answer, setAnswer] = useState("");
   const accept = [task.answer, ...(task.accept ?? [])].map(normaliseText);
+  const submittedState = result ? (result.correct ? "correct" : "incorrect") : null;
+  const fieldStateClass =
+    submittedState === "correct"
+      ? "border-emerald-400 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100 focus:border-emerald-500"
+      : submittedState === "incorrect"
+        ? "border-rose-400 bg-rose-50 text-rose-950 ring-2 ring-rose-100 focus:border-rose-500"
+        : "border-line focus:border-primary";
+  const check = () => {
+    const correct = accept.includes(normaliseText(answer));
+    onResult(correct, correct ? "Output matched." : `Expected: ${task.answer}`);
+  };
   return (
     <div className="space-y-4">
       <CodeBlock code={task.code} />
       <label className="block">
         <span className="text-sm font-bold text-muted">Output</span>
         <textarea
-          className="mt-2 min-h-28 w-full rounded-lg border border-line p-3 font-mono text-sm focus:border-primary"
+          className={`mt-2 min-h-28 w-full rounded-lg border p-3 font-mono text-sm transition ${fieldStateClass}`}
           value={answer}
-          onChange={(event) => setAnswer(event.target.value)}
+          onChange={(event) => {
+            setAnswer(event.target.value);
+            onDraftChange();
+          }}
           placeholder="Type the exact output"
+          aria-invalid={submittedState === "incorrect" ? true : undefined}
         />
       </label>
-      <Button onClick={() => onResult(accept.includes(normaliseText(answer)), accept.includes(normaliseText(answer)) ? "Output matched." : `Expected: ${task.answer}`)}>
-        Check output
+      <Button variant={result ? (result.correct ? "success" : "danger") : "primary"} onClick={check}>
+        {result ? result.correct ? <CheckCircle2 className="animate-result-pop" size={18} /> : <XCircle size={18} /> : null}
+        {result ? (result.correct ? "Correct" : "Try again") : "Check output"}
       </Button>
     </div>
   );
 }
 
-function FillBlank({ task, onResult }: { task: FillBlankTask; onResult: (correct: boolean, message: string) => void }) {
+function FillBlank({
+  task,
+  result,
+  onDraftChange,
+  onResult,
+}: {
+  task: FillBlankTask;
+  result: CodeLabResult | null;
+  onDraftChange: () => void;
+  onResult: (correct: boolean, message: string) => void;
+}) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const correct = task.blanks.every((blank) => {
     const value = answers[blank.id] ?? "";
@@ -165,18 +216,30 @@ function FillBlank({ task, onResult }: { task: FillBlankTask; onResult: (correct
           <label key={blank.id} className="block">
             <span className="text-sm font-bold text-muted">Blank {blank.id}</span>
             <input
-              className="mt-2 min-h-11 w-full rounded-lg border border-line px-3 font-mono text-sm focus:border-primary"
+              className={`mt-2 min-h-11 w-full rounded-lg border px-3 font-mono text-sm transition ${blankInputClass(task, blank, answers[blank.id] ?? "", result)}`}
               value={answers[blank.id] ?? ""}
-              onChange={(event) => setAnswers((value) => ({ ...value, [blank.id]: event.target.value }))}
+              onChange={(event) => {
+                setAnswers((value) => ({ ...value, [blank.id]: event.target.value }));
+                onDraftChange();
+              }}
+              aria-invalid={result && !isBlankAnswerCorrect(task, blank, answers[blank.id] ?? "") ? true : undefined}
             />
           </label>
         ))}
       </div>
-      <Button onClick={() => onResult(correct, correct ? "All blanks are correct." : "One or more blanks need another look.")}>
-        Check blanks
+      <Button variant={result ? (result.correct ? "success" : "danger") : "primary"} onClick={() => onResult(correct, correct ? "All blanks are correct." : "One or more blanks need another look.")}>
+        {result ? result.correct ? <CheckCircle2 className="animate-result-pop" size={18} /> : <XCircle size={18} /> : null}
+        {result ? (result.correct ? "Correct" : "Try again") : "Check blanks"}
       </Button>
     </div>
   );
+}
+
+function blankInputClass(task: FillBlankTask, blank: FillBlankTask["blanks"][number], value: string, result: CodeLabResult | null) {
+  if (!result) return "border-line focus:border-primary";
+  return isBlankAnswerCorrect(task, blank, value)
+    ? "border-emerald-400 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100 focus:border-emerald-500"
+    : "border-rose-400 bg-rose-50 text-rose-950 ring-2 ring-rose-100 focus:border-rose-500";
 }
 
 function isBlankAnswerCorrect(task: FillBlankTask, blank: FillBlankTask["blanks"][number], value: string) {
@@ -184,11 +247,22 @@ function isBlankAnswerCorrect(task: FillBlankTask, blank: FillBlankTask["blanks"
   return blank.accept.some((accepted) => (caseSensitive ? value.trim() === accepted : normaliseText(value) === normaliseText(accepted)));
 }
 
-function Parsons({ task, onResult }: { task: ParsonsTask; onResult: (correct: boolean, message: string) => void }) {
+function Parsons({
+  task,
+  result,
+  onDraftChange,
+  onResult,
+}: {
+  task: ParsonsTask;
+  result: CodeLabResult | null;
+  onDraftChange: () => void;
+  onResult: (correct: boolean, message: string) => void;
+}) {
   const [lines, setLines] = useState(() => shuffle([...task.lines, ...(task.distractors ?? [])]));
   const move = (from: number, direction: -1 | 1) => {
     const to = from + direction;
     if (to < 0 || to >= lines.length) return;
+    onDraftChange();
     setLines((value) => {
       const next = [...value];
       [next[from], next[to]] = [next[to], next[from]];
@@ -207,7 +281,7 @@ function Parsons({ task, onResult }: { task: ParsonsTask; onResult: (correct: bo
         {lines.map((line, index) => (
           <div
             key={`${line}-${index}`}
-            className={`flex items-center gap-2 rounded-lg border p-3 ${index < task.lines.length ? "border-indigo-200 bg-indigo-50" : "border-line bg-slate-50"}`}
+            className={`flex items-center gap-2 rounded-lg border p-3 transition ${parsonsLineClass(index, task.lines.length, result)}`}
           >
             <code className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm">{line}</code>
             <button className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white" onClick={() => move(index, -1)} aria-label="Move line up">
@@ -220,13 +294,25 @@ function Parsons({ task, onResult }: { task: ParsonsTask; onResult: (correct: bo
         ))}
       </div>
       <div className="flex gap-2">
-        <Button onClick={check}>Check order</Button>
-        <Button variant="ghost" onClick={() => setLines(shuffle([...task.lines, ...(task.distractors ?? [])]))}>
+        <Button variant={result ? (result.correct ? "success" : "danger") : "primary"} onClick={check}>
+          {result ? result.correct ? <CheckCircle2 className="animate-result-pop" size={18} /> : <XCircle size={18} /> : null}
+          {result ? (result.correct ? "Correct" : "Try again") : "Check order"}
+        </Button>
+        <Button variant="ghost" onClick={() => {
+          setLines(shuffle([...task.lines, ...(task.distractors ?? [])]));
+          onDraftChange();
+        }}>
           <RotateCcw size={17} /> Shuffle
         </Button>
       </div>
     </div>
   );
+}
+
+function parsonsLineClass(index: number, answerLength: number, result: CodeLabResult | null) {
+  if (result?.correct && index < answerLength) return "border-emerald-200 bg-emerald-50";
+  if (result && !result.correct && index < answerLength) return "border-rose-200 bg-rose-50";
+  return index < answerLength ? "border-indigo-200 bg-indigo-50" : "border-line bg-slate-50";
 }
 
 function CodeBlock({ code }: { code: string }) {
