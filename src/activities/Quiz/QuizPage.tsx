@@ -22,7 +22,14 @@ import {
 import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
-import { useProgressStore } from "../../store/progressStore";
+import { isKnown, useProgressStore } from "../../store/progressStore";
+
+interface QuizSession {
+  queue: MCQ[];
+  targets: Record<string, number>;
+  itemIds: string[];
+  completedIds: string[];
+}
 
 export function QuizPage() {
   const { scope: scopeParam } = useParams();
@@ -43,29 +50,28 @@ export function QuizPage() {
       ),
     [scope],
   );
-  const [items, setItems] = useState(() =>
-    sortQuizItems(sourceItems, progress),
+  const [session, setSession] = useState(() =>
+    createQuizSession(sourceItems, progress),
   );
 
-  const [index, setIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
 
   useEffect(() => {
-    setItems(sortQuizItems(sourceItems, progressRef.current));
-    setIndex(0);
+    setSession(createQuizSession(sourceItems, progressRef.current));
     setSelected(null);
     setAnswered(false);
     setCorrectCount(0);
+    setAnsweredCount(0);
   }, [scopeKey, sourceItems]);
 
-  const current = items[index];
-  const itemIds = useMemo(() => items.map((item) => item.id), [items]);
-  const mastery = getMasteryForItemIds(itemIds, progress);
-  const finished = index >= items.length;
+  const current = session.queue[0];
+  const mastery = getMasteryForItemIds(session.itemIds, progress);
+  const finished = sourceItems.length > 0 && session.queue.length === 0;
 
-  if (!current && !finished) {
+  if (sourceItems.length === 0) {
     return (
       <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <h1 className="text-xl font-extrabold">No quiz questions available</h1>
@@ -80,24 +86,25 @@ export function QuizPage() {
     return (
       <div className="mx-auto max-w-3xl rounded-lg border border-line bg-white p-8 text-center shadow-soft">
         <ProgressRing
-          value={Math.round((correctCount / Math.max(1, items.length)) * 100)}
+          value={Math.round((correctCount / Math.max(1, answeredCount)) * 100)}
           size={96}
           color="#22c55e"
         />
         <h1 className="mt-5 text-3xl font-extrabold">Quiz complete</h1>
         <p className="mt-2 text-muted">
-          You scored {correctCount} / {items.length}. Review explanations and
-          repeat due questions to build mastery.
+          You scored {correctCount} / {answeredCount}.{" "}
+          {session.completedIds.length} target items reached mastery in this
+          session.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button
             variant="secondary"
             onClick={() => {
-              setItems(sortQuizItems(sourceItems, progressRef.current));
-              setIndex(0);
+              setSession(createQuizSession(sourceItems, progressRef.current));
               setSelected(null);
               setAnswered(false);
               setCorrectCount(0);
+              setAnsweredCount(0);
             }}
           >
             Practise again
@@ -120,7 +127,21 @@ export function QuizPage() {
     if (selected === null || answered) return;
     const correct = selected === correctIndex;
     setAnswered(true);
+    setAnsweredCount((value) => value + 1);
     if (correct) setCorrectCount((value) => value + 1);
+    setSession((value) => {
+      const remaining = value.targets[current.id] ?? 1;
+      const nextRemaining = correct
+        ? Math.max(0, remaining - 1)
+        : Math.max(2, remaining);
+      return {
+        ...value,
+        targets: {
+          ...value.targets,
+          [current.id]: nextRemaining,
+        },
+      };
+    });
     recordAnswer(
       {
         itemId: current.id,
@@ -130,14 +151,27 @@ export function QuizPage() {
       },
       getDefaultDifficulty(current.difficulty),
     );
-    if (index === items.length - 1) {
-      recordDailyTaskCompletion(location.pathname);
-    }
   };
 
   const next = () => {
     if (!answered) return;
-    setIndex((value) => value + 1);
+    const remaining = session.targets[current.id] ?? 0;
+    const willFinish = session.queue.length === 1 && remaining <= 0;
+    setSession((value) => {
+      const [answeredItem, ...rest] = value.queue;
+      if (!answeredItem) return value;
+      const nextRemaining = value.targets[answeredItem.id] ?? 0;
+      const completedIds =
+        nextRemaining <= 0 && !value.completedIds.includes(answeredItem.id)
+          ? [...value.completedIds, answeredItem.id]
+          : value.completedIds;
+      return {
+        ...value,
+        queue: nextRemaining > 0 ? [...rest, answeredItem] : rest,
+        completedIds,
+      };
+    });
+    if (willFinish) recordDailyTaskCompletion(location.pathname);
     setSelected(null);
     setAnswered(false);
   };
@@ -162,19 +196,28 @@ export function QuizPage() {
         </div>
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <span className="shrink-0 text-sm font-extrabold">
-            Question {index + 1} / {items.length}
+            Mastered {session.completedIds.length} / {session.itemIds.length}
           </span>
           <div
             className="flex min-w-0 flex-wrap gap-1"
-            aria-label={`Question ${index + 1} of ${items.length}`}
+            aria-label={`${session.completedIds.length} of ${session.itemIds.length} target items mastered`}
           >
-            {items.map((item, itemIndex) => (
+            {session.itemIds.map((itemId) => (
               <span
-                key={item.id}
-                className={`h-2 w-2 shrink-0 rounded-full ${itemIndex < index ? "bg-emerald-500" : itemIndex === index ? "bg-primary" : "bg-slate-300"}`}
+                key={itemId}
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  session.completedIds.includes(itemId)
+                    ? "bg-emerald-500"
+                    : current.id === itemId
+                      ? "bg-primary"
+                      : "bg-slate-300"
+                }`}
               />
             ))}
           </div>
+          <span className="shrink-0 text-xs font-bold text-muted">
+            {session.queue.length} in loop
+          </span>
         </div>
       </div>
 
@@ -227,7 +270,11 @@ export function QuizPage() {
           <div className="mt-6 flex justify-end">
             {answered ? (
               <Button onClick={next}>
-                Next question <ArrowRight size={18} />
+                {session.queue.length === 1 &&
+                (session.targets[current.id] ?? 0) <= 0
+                  ? "Finish quiz"
+                  : "Next question"}{" "}
+                <ArrowRight size={18} />
               </Button>
             ) : (
               <Button onClick={submit} disabled={selected === null}>
@@ -455,11 +502,47 @@ function sortQuizItems(
   return items
     .map((item, order) => ({ item, order }))
     .sort((a, b) => {
-      const aProgress = progress[a.item.id];
-      const bProgress = progress[b.item.id];
-      const aDue = !aProgress || aProgress.nextDue <= now ? 0 : 1;
-      const bDue = !bProgress || bProgress.nextDue <= now ? 0 : 1;
-      return aDue - bDue || a.order - b.order;
+      return (
+        getQuizPriority(a.item, progress, now) -
+          getQuizPriority(b.item, progress, now) || a.order - b.order
+      );
     })
     .map(({ item }) => item);
+}
+
+function createQuizSession(
+  items: MCQ[],
+  progress: Record<string, ItemProgress>,
+): QuizSession {
+  const now = Date.now();
+  const sorted = sortQuizItems(items, progress);
+  const targetItems =
+    sorted.filter((item) => getQuizPriority(item, progress, now) < 2) || [];
+  const queue = targetItems.length > 0 ? targetItems : sorted;
+  const targets = Object.fromEntries(
+    queue.map((item) => [item.id, getCorrectsNeeded(progress[item.id])]),
+  );
+  return {
+    queue,
+    targets,
+    itemIds: queue.map((item) => item.id),
+    completedIds: [],
+  };
+}
+
+function getQuizPriority(
+  item: MCQ,
+  progress: Record<string, ItemProgress>,
+  now: number,
+) {
+  const itemProgress = progress[item.id];
+  if (itemProgress && itemProgress.nextDue <= now) return 0;
+  if (!itemProgress || !isKnown(itemProgress)) return 1;
+  return 2;
+}
+
+function getCorrectsNeeded(progress?: ItemProgress) {
+  if (!progress) return 2;
+  if (isKnown(progress)) return 1;
+  return Math.max(1, 2 - progress.correctCount);
 }

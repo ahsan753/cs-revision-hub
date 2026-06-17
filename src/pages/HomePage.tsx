@@ -23,11 +23,7 @@ import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { getUnitMastery } from "../store/mastery";
 import { getDailySuggestions } from "../store/dailyGoals";
-import {
-  dailyTaskGoal,
-  useProgressStore,
-  xpForLevel,
-} from "../store/progressStore";
+import { useProgressStore, xpForLevel } from "../store/progressStore";
 
 export function HomePage() {
   const progress = useProgressStore((state) => state.itemProgress);
@@ -38,6 +34,7 @@ export function HomePage() {
   const streak = useProgressStore((state) => state.streak);
   const xp = useProgressStore((state) => state.xp);
   const level = useProgressStore((state) => state.level);
+  const dailyGoal = useProgressStore((state) => state.dailyGoal);
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
   const currentLevelXp = xpForLevel(level);
   const nextLevelXp = xpForLevel(level + 1);
@@ -46,16 +43,13 @@ export function HomePage() {
   );
   const dailySuggestions = getDailySuggestions(progress);
   const completedDailyTaskIds = new Set(daily.completedTasks ?? []);
-  const completedDailyTasks = Math.min(
-    dailyTaskGoal,
-    completedDailyTaskIds.size,
-  );
-  const remainingDailyTasks = Math.max(0, dailyTaskGoal - completedDailyTasks);
+  const dailyAnswered = Math.min(dailyGoal, daily.answered);
+  const remainingDailyItems = Math.max(0, dailyGoal - dailyAnswered);
   const dailyPercent = Math.min(
     100,
-    Math.round((completedDailyTasks / dailyTaskGoal) * 100),
+    Math.round((dailyAnswered / Math.max(1, dailyGoal)) * 100),
   );
-  const dailyComplete = remainingDailyTasks === 0;
+  const dailyComplete = daily.completed || remainingDailyItems === 0;
 
   useEffect(() => {
     refreshDailyProgress();
@@ -113,8 +107,8 @@ export function HomePage() {
               </div>
               <p className="mt-2 text-sm leading-5 text-muted">
                 {dailyComplete
-                  ? "Daily tasks complete. Pick another activity if you want to stretch."
-                  : `${remainingDailyTasks} daily ${remainingDailyTasks === 1 ? "task" : "tasks"} left. Complete an activity to update this.`}
+                  ? "Daily goal complete. Pick another activity if you want to stretch."
+                  : `${remainingDailyItems} ${remainingDailyItems === 1 ? "item" : "items"} left. Answer questions or cards to update this.`}
               </p>
             </div>
             <div className="shrink-0 text-center">
@@ -127,13 +121,16 @@ export function HomePage() {
           </div>
           <div
             className="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100"
-            aria-label={`${completedDailyTasks} of ${dailyTaskGoal} daily tasks completed`}
+            aria-label={`${dailyAnswered} of ${dailyGoal} daily items completed`}
           >
             <div
               className="h-full rounded-full bg-primary"
               style={{ width: `${dailyPercent}%` }}
             />
           </div>
+          <p className="mt-2 text-xs font-bold text-muted">
+            {dailyAnswered} / {dailyGoal} items today
+          </p>
           <div className="mt-4 space-y-2">
             {dailySuggestions.map((suggestion) => {
               const isComplete = completedDailyTaskIds.has(suggestion.taskId);

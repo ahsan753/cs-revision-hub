@@ -5,7 +5,6 @@ import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { getSubtopicMastery, getUnitMastery } from "../store/mastery";
 import {
-  dailyTaskGoal,
   getItemAccuracyPercent,
   useProgressStore,
 } from "../store/progressStore";
@@ -13,16 +12,13 @@ import {
 export function ProgressPage() {
   const progress = useProgressStore((state) => state.itemProgress);
   const daily = useProgressStore((state) => state.dailyProgress);
+  const dailyGoal = useProgressStore((state) => state.dailyGoal);
   const refreshDailyProgress = useProgressStore(
     (state) => state.refreshDailyProgress,
   );
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
   const history = useProgressStore((state) => state.history);
-  const completedDailyTaskIds = new Set(daily.completedTasks ?? []);
-  const completedDailyTasks = Math.min(
-    dailyTaskGoal,
-    completedDailyTaskIds.size,
-  );
+  const dailyAnswered = Math.min(dailyGoal, daily.answered);
   const correctRate = history.length
     ? Math.round(
         (history.filter((item) => item.correct).length / history.length) * 100,
@@ -47,7 +43,7 @@ export function ProgressPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Daily goals"
-          value={`${completedDailyTasks}/${dailyTaskGoal} done`}
+          value={`${dailyAnswered}/${dailyGoal} items`}
         />
         <StatCard label="Attempts recorded" value={history.length} />
         <StatCard label="Correct rate" value={`${correctRate}%`} />

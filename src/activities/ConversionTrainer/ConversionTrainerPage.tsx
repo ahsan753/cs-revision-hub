@@ -81,7 +81,7 @@ export function ConversionTrainerPage() {
     });
     recordAnswer(
       {
-        itemId: `convert-${mode}`,
+        itemId: getMasteryItemId(mode, problem),
         correct,
         activity: "convert",
         timestamp: Date.now(),
@@ -342,6 +342,19 @@ function generateProblem(mode: Mode): Problem {
       `÷ 1024 = ${kib} KiB`,
     ],
   };
+}
+
+function getMasteryItemId(mode: Mode, problem: Problem) {
+  if (mode === "denary-binary") return "u1-mcq-2";
+  if (mode === "binary-denary") return "u1-mcq-1";
+  if (mode === "denary-hex") return "u1-mcq-4";
+  if (mode === "hex-denary") return "u1-mcq-3";
+  if (mode === "binary-add") return "u1-mcq-7";
+  if (mode === "shift") return "u1-mcq-8";
+  if (mode === "twos-complement") return "u1-fc-9";
+  if (mode === "file-size" && problem.id.includes("-sound-"))
+    return "u1-mcq-10";
+  return "u1-mcq-12";
 }
 
 function rand(min: number, max: number) {

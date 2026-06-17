@@ -66,7 +66,6 @@ interface ProgressActions {
 export type ProgressState = ProgressSnapshot & ProgressActions;
 
 const dayMs = 24 * 60 * 60 * 1000;
-export const dailyTaskGoal = 3;
 const intervals: Record<number, number> = {
   1: 0,
   2: dayMs,
@@ -240,6 +239,10 @@ export function isKnown(progress?: ItemProgress) {
   );
 }
 
+function isDailyGoalComplete(answered: number, goal: number) {
+  return answered >= Math.max(1, goal);
+}
+
 export function getItemAccuracyPercent(progress: {
   attempts: number;
   correctAttempts?: number;
@@ -252,17 +255,102 @@ export function getItemAccuracyPercent(progress: {
   );
 }
 
+function getContentItemSubtopics() {
+  const subtopics = new Map<string, string>();
+  for (const unit of contentIndex.units) {
+    for (const item of [
+      ...unit.flashcards,
+      ...unit.mcqs,
+      ...(unit.codeTasks ?? []),
+    ]) {
+      subtopics.set(item.id, item.subtopic);
+    }
+  }
+  return subtopics;
+}
+
+function getPseudocodeParsonsIds() {
+  return new Set(
+    contentIndex.units.flatMap((unit) =>
+      (unit.codeTasks ?? [])
+        .filter(
+          (task) => task.type === "parsons" && task.language === "pseudocode",
+        )
+        .map((task) => task.id),
+    ),
+  );
+}
+
+function getMaxCorrectQuizStreak(history: ActivityResult[]) {
+  let current = 0;
+  let best = 0;
+  for (const item of history) {
+    if (item.activity !== "quiz") continue;
+    current = item.correct ? current + 1 : 0;
+    best = Math.max(best, current);
+  }
+  return best;
+}
+
+function hasNinetyPercentHexAccuracy(history: ActivityResult[]) {
+  const hexModeGroups = [
+    ["convert-denary-hex", "u1-mcq-4"],
+    ["convert-hex-denary", "u1-mcq-3"],
+  ];
+
+  return hexModeGroups.every((ids) => {
+    const attempts = history.filter(
+      (item) => item.activity === "convert" && ids.includes(item.itemId),
+    );
+    if (attempts.length < 5) return false;
+    const correct = attempts.filter((item) => item.correct).length;
+    return correct / attempts.length >= 0.9;
+  });
+}
+
+function hasMasteredPreviouslyMissedSubtopic(snapshot: ProgressSnapshot) {
+  const itemSubtopics = getContentItemSubtopics();
+  const missedSubtopics = new Set(
+    snapshot.history
+      .filter((item) => !item.correct)
+      .map((item) => itemSubtopics.get(item.itemId))
+      .filter((subtopic): subtopic is string => Boolean(subtopic)),
+  );
+
+  if (!missedSubtopics.size) return false;
+
+  return contentIndex.units.some((unit) =>
+    unit.subtopics.some(
+      (subtopic) =>
+        missedSubtopics.has(subtopic.id) &&
+        getSubtopicMastery(unit, subtopic.id, snapshot.itemProgress).state ===
+          "Mastered",
+    ),
+  );
+}
+
 function withUnlockedBadges(snapshot: ProgressSnapshot): ProgressSnapshot {
   const unlocked = new Set(snapshot.unlockedBadges);
   const correctHistory = snapshot.history.filter((item) => item.correct);
+  const pseudocodeParsonsIds = getPseudocodeParsonsIds();
 
   if (snapshot.history.length > 0) unlocked.add("first-steps");
   if (correctHistory.filter((item) => item.activity === "convert").length >= 50)
     unlocked.add("binary-boss");
+  if (hasNinetyPercentHexAccuracy(snapshot.history)) unlocked.add("hex-hero");
   if (correctHistory.filter((item) => item.activity === "code").length >= 10)
     unlocked.add("loop-wizard");
-  if (correctHistory.filter((item) => item.activity === "quiz").length >= 10)
+  if (
+    correctHistory.filter(
+      (item) =>
+        item.activity === "code" && pseudocodeParsonsIds.has(item.itemId),
+    ).length >= 20
+  ) {
+    unlocked.add("pseudo-pro");
+  }
+  if (getMaxCorrectQuizStreak(snapshot.history) >= 10)
     unlocked.add("sharp-shooter");
+  if (hasMasteredPreviouslyMissedSubtopic(snapshot)) unlocked.add("comeback");
   if (snapshot.streak >= 7) unlocked.add("perfect-week");
 
   const unit2 = contentIndex.unitsById.get("u2");
@@ -306,17 +394,20 @@ export const useProgressStore = create<ProgressState>((set) => {
         const gainedXp = result.correct ? 10 * difficulty : 2;
         const answered = daily.answered + 1;
         const xp = state.xp + gainedXp;
+        const completedNow = isDailyGoalComplete(answered, state.dailyGoal);
+        const streak =
+          !daily.completed && completedNow ? state.streak + 1 : state.streak;
         const snapshot: ProgressSnapshot = {
           version: 1,
           xp,
           level: levelFromXp(xp),
-          streak: state.streak,
+          streak,
           dailyGoal: state.dailyGoal,
           dailyProgress: {
             date: daily.date,
             answered,
             xp: daily.xp + gainedXp,
-            completed: daily.completed,
+            completed: daily.completed || completedNow,
             completedTasks: daily.completedTasks,
           },
           unlockedBadges: state.unlockedBadges,
@@ -341,15 +432,10 @@ export const useProgressStore = create<ProgressState>((set) => {
           return persist({ ...state, dailyProgress: daily });
         }
         const completedTasks = [...daily.completedTasks, taskId];
-        const completedNow = completedTasks.length >= dailyTaskGoal;
-        const streak =
-          !daily.completed && completedNow ? state.streak + 1 : state.streak;
         return persist({
           ...state,
-          streak,
           dailyProgress: {
             ...daily,
-            completed: daily.completed || completedNow,
             completedTasks,
           },
         });
@@ -368,12 +454,21 @@ export const useProgressStore = create<ProgressState>((set) => {
       });
     },
     setDailyGoal: (goal) => {
-      set((state) =>
-        persist({
+      set((state) => {
+        const daily = currentDailyProgress(state.dailyProgress);
+        const dailyGoal = Math.min(100, Math.max(5, Math.round(goal)));
+        const completedNow = isDailyGoalComplete(daily.answered, dailyGoal);
+        return persist({
           ...state,
-          dailyGoal: Math.min(100, Math.max(5, Math.round(goal))),
-        }),
-      );
+          streak:
+            !daily.completed && completedNow ? state.streak + 1 : state.streak,
+          dailyGoal,
+          dailyProgress: {
+            ...daily,
+            completed: daily.completed || completedNow,
+          },
+        });
+      });
     },
     updateSettings: (settings) => {
       set((state) =>
