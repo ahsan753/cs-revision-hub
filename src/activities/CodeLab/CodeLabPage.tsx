@@ -23,7 +23,7 @@ import type {
   ParsonsTask,
   PredictOutputTask,
 } from "../../data/contentTypes";
-import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
+import { useProgressStore } from "../../store/progressStore";
 import { normaliseText, shuffle } from "../shared/activityUtils";
 
 type CodeLabResult = { correct: boolean; message: string };
@@ -79,8 +79,8 @@ export function CodeLabPage() {
       activity: "code" as const,
       timestamp: Date.now(),
     };
-    recordAnswer(result, difficulty);
-    if (correct) triggerXpFloat(getXpForAnswer(result, difficulty));
+    const xpGained = recordAnswer(result, difficulty);
+    if (xpGained > 0) triggerXpFloat(xpGained);
     recordDailyTaskCompletion(location.pathname);
   };
 

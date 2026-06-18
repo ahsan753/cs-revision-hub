@@ -12,7 +12,7 @@ import {
   parseScope,
 } from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
-import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
+import { useProgressStore } from "../../store/progressStore";
 import { shuffle, takeRound } from "../shared/activityUtils";
 
 export function MatchGamePage() {
@@ -114,10 +114,10 @@ export function MatchGamePage() {
       activity: "match" as const,
       timestamp: Date.now(),
     };
-    recordAnswer(result, difficulty);
+    const xpGained = recordAnswer(result, difficulty);
     if (correct) {
       matchedIdsRef.current.add(card.id);
-      triggerXpFloat(getXpForAnswer(result, difficulty), anchorEl);
+      if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
       setWrongMatch(null);
       const nextMatched = { ...matched, [card.id]: true };
       setMatched(nextMatched);

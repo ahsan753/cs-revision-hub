@@ -81,7 +81,7 @@ export type CelebrationEvent =
     };
 
 interface ProgressActions {
-  recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => void;
+  recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => number;
   recordDailyTaskCompletion: (taskId: string) => void;
   refreshDailyProgress: () => void;
   setDailyGoal: (goal: number) => void;
@@ -125,8 +125,17 @@ export function xpForLevel(level: number) {
 export function getXpForAnswer(
   result: Pick<ActivityResult, "activity" | "correct">,
   difficulty: 1 | 2 | 3 = 1,
+  previous?: Pick<ItemProgress, "correctCount" | "latestCorrect" | "nextDue">,
+  timestamp = Date.now(),
 ) {
   if (!result.correct || result.activity === "flashcards") return 0;
+  if (
+    previous?.latestCorrect &&
+    previous.correctCount >= 2 &&
+    previous.nextDue > timestamp
+  ) {
+    return 0;
+  }
   return 10 * difficulty;
 }
 
@@ -565,10 +574,17 @@ export const useProgressStore = create<ProgressState>((set, get) => {
     ...initial,
     celebrations: [],
     recordAnswer: (result, difficulty = 1) => {
+      let awardedXp = 0;
       set((state) => {
         const before = toProgressSnapshot(state);
         const daily = currentDailyProgress(state.dailyProgress);
-        const gainedXp = getXpForAnswer(result, difficulty);
+        const gainedXp = getXpForAnswer(
+          result,
+          difficulty,
+          state.itemProgress[result.itemId],
+          result.timestamp,
+        );
+        awardedXp = gainedXp;
         const answered = daily.answered + 1;
         const xp = state.xp + gainedXp;
         const completedNow = isDailyGoalComplete(answered, state.dailyGoal);
@@ -615,6 +631,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           celebrations: [...state.celebrations, ...celebrations],
         };
       });
+      return awardedXp;
     },
     recordDailyTaskCompletion: (taskId) => {
       set((state) => {

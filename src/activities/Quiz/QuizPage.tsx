@@ -20,11 +20,7 @@ import {
 import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
-import {
-  getXpForAnswer,
-  isKnown,
-  useProgressStore,
-} from "../../store/progressStore";
+import { isKnown, useProgressStore } from "../../store/progressStore";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
 
 interface QuizSession {
@@ -224,9 +220,8 @@ export function QuizPage() {
       activity: "quiz" as const,
       timestamp: Date.now(),
     };
-    recordAnswer(result, difficulty);
-    if (correct)
-      triggerXpFloat(getXpForAnswer(result, difficulty), cardRef.current);
+    const xpGained = recordAnswer(result, difficulty);
+    if (xpGained > 0) triggerXpFloat(xpGained, cardRef.current);
   };
 
   const next = () => {

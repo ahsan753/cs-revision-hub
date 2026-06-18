@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
-import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
+import { useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
 
@@ -107,8 +107,8 @@ export function ConversionTrainerPage() {
       activity: "convert" as const,
       timestamp: Date.now(),
     };
-    recordAnswer(answerResult, 2);
-    if (correct) triggerXpFloat(getXpForAnswer(answerResult, 2), anchorEl);
+    const xpGained = recordAnswer(answerResult, 2);
+    if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
     recordDailyTaskCompletion(location.pathname);
   };
 

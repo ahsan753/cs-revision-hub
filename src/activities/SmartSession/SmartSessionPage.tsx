@@ -13,7 +13,7 @@ import { Button } from "../../components/ui/Button";
 import { ProgressRing } from "../../components/ui/ProgressRing";
 import { getDefaultDifficulty } from "../../content/contentIndex";
 import type { Flashcard, MCQ } from "../../data/contentTypes";
-import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
+import { useProgressStore } from "../../store/progressStore";
 import {
   planSmartSession,
   type SmartSessionItem,
@@ -84,13 +84,12 @@ export function SmartSessionPage() {
         current.type === "mcq" ? ("quiz" as const) : ("flashcards" as const),
       timestamp: Date.now(),
     };
-    const xpGained = getXpForAnswer(result, difficulty);
+    const xpGained = recordAnswer(result, difficulty);
     setRevealed(true);
     setAnswers((value) => [
       ...value,
       { id: current.id, type: current.type, correct, xpGained },
     ]);
-    recordAnswer(result, difficulty);
     if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
   };
 

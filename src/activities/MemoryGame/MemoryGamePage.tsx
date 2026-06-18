@@ -10,7 +10,7 @@ import {
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
-import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
+import { useProgressStore } from "../../store/progressStore";
 import { useReducedMotion } from "../../hooks/useReducedMotion";
 import { shuffle, takeRound } from "../shared/activityUtils";
 
@@ -99,10 +99,10 @@ export function MemoryGamePage() {
         activity: "memory" as const,
         timestamp: Date.now(),
       };
-      recordAnswer(result, difficulty);
+      const xpGained = recordAnswer(result, difficulty);
       if (correct) {
         matchedPairIdsRef.current.add(second.pairId);
-        triggerXpFloat(getXpForAnswer(result, difficulty), anchorEl);
+        if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
         const nextMatched = { ...matched, [second.pairId]: true };
         setMatched(nextMatched);
         if (Object.keys(nextMatched).length === deck.length / 2) {

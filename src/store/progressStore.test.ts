@@ -95,6 +95,48 @@ describe("XP policy", () => {
     expect(getXpForAnswer({ activity: "memory", correct: false }, 3)).toBe(0);
     expect(getXpForAnswer({ activity: "quiz", correct: false }, 1)).toBe(0);
   });
+
+  it("still awards XP for the second correct attempt needed to master an item", () => {
+    expect(
+      getXpForAnswer({ activity: "code", correct: true }, 2, {
+        correctCount: 1,
+        latestCorrect: true,
+        nextDue: Date.now() + 60_000,
+      }),
+    ).toBe(20);
+  });
+
+  it("does not award XP for immediate repeats of already-mastered items", () => {
+    expect(
+      getXpForAnswer(
+        { activity: "code", correct: true },
+        2,
+        {
+          correctCount: 2,
+          latestCorrect: true,
+          nextDue: Date.now() + 60_000,
+        },
+        Date.now(),
+      ),
+    ).toBe(0);
+  });
+
+  it("awards XP for mastered items when they are due again", () => {
+    const now = Date.now();
+
+    expect(
+      getXpForAnswer(
+        { activity: "quiz", correct: true },
+        1,
+        {
+          correctCount: 2,
+          latestCorrect: true,
+          nextDue: now - 1,
+        },
+        now,
+      ),
+    ).toBe(10);
+  });
 });
 
 describe("progress import validation", () => {
