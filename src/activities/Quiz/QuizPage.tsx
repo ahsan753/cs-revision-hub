@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Eraser,
   HelpCircle,
   Keyboard,
   PencilLine,
@@ -23,7 +24,11 @@ import {
 import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
-import { isKnown, useProgressStore } from "../../store/progressStore";
+import {
+  getXpForAnswer,
+  isKnown,
+  useProgressStore,
+} from "../../store/progressStore";
 
 interface QuizSession {
   queue: MCQ[];
@@ -72,6 +77,20 @@ export function QuizPage() {
 
   const current = session.queue[0];
   const mastery = getMasteryForItemIds(session.itemIds, progress);
+  const liveCompletedIds = useMemo(
+    () =>
+      session.itemIds.filter(
+        (itemId) =>
+          session.completedIds.includes(itemId) ||
+          isKnown(progress[itemId]) ||
+          (session.targets[itemId] ?? 1) <= 0,
+      ),
+    [progress, session.completedIds, session.itemIds, session.targets],
+  );
+  const liveCompleted = useMemo(
+    () => new Set(liveCompletedIds),
+    [liveCompletedIds],
+  );
   const finished = sourceItems.length > 0 && session.queue.length === 0;
 
   if (sourceItems.length === 0) {
@@ -146,16 +165,15 @@ export function QuizPage() {
         },
       };
     });
-    recordAnswer(
-      {
-        itemId: current.id,
-        correct,
-        activity: "quiz",
-        timestamp: Date.now(),
-      },
-      difficulty,
-    );
-    if (correct) triggerXpFloat(10 * difficulty, cardRef.current);
+    const result = {
+      itemId: current.id,
+      correct,
+      activity: "quiz" as const,
+      timestamp: Date.now(),
+    };
+    recordAnswer(result, difficulty);
+    if (correct)
+      triggerXpFloat(getXpForAnswer(result, difficulty), cardRef.current);
   };
 
   const next = () => {
@@ -201,17 +219,17 @@ export function QuizPage() {
         </div>
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <span className="shrink-0 text-sm font-extrabold">
-            Mastered {session.completedIds.length} / {session.itemIds.length}
+            Mastered {liveCompletedIds.length} / {session.itemIds.length}
           </span>
           <div
             className="flex min-w-0 flex-wrap gap-1"
-            aria-label={`${session.completedIds.length} of ${session.itemIds.length} target items mastered`}
+            aria-label={`${liveCompletedIds.length} of ${session.itemIds.length} target items mastered`}
           >
             {session.itemIds.map((itemId) => (
               <span
                 key={itemId}
                 className={`h-2 w-2 shrink-0 rounded-full ${
-                  session.completedIds.includes(itemId)
+                  liveCompleted.has(itemId)
                     ? "bg-emerald-500"
                     : current.id === itemId
                       ? "bg-primary"
@@ -363,6 +381,7 @@ function WorkingOutBox({ itemId }: { itemId: string }) {
   const isDrawingRef = useRef(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const [notes, setNotes] = useState("");
+  const [tool, setTool] = useState<"pencil" | "eraser">("pencil");
 
   useEffect(() => {
     setNotes("");
@@ -405,14 +424,18 @@ function WorkingOutBox({ itemId }: { itemId: string }) {
     const lastPoint = lastPointRef.current;
     if (!context || !lastPoint) return;
 
+    context.save();
+    context.globalCompositeOperation =
+      tool === "eraser" ? "destination-out" : "source-over";
     context.strokeStyle = "#111827";
-    context.lineWidth = 4;
+    context.lineWidth = tool === "eraser" ? 18 : 4;
     context.lineCap = "round";
     context.lineJoin = "round";
     context.beginPath();
     context.moveTo(lastPoint.x, lastPoint.y);
     context.lineTo(point.x, point.y);
     context.stroke();
+    context.restore();
     lastPointRef.current = point;
   };
 
@@ -448,15 +471,35 @@ function WorkingOutBox({ itemId }: { itemId: string }) {
             calculations.
           </p>
         </div>
-        <Button
-          variant="secondary"
-          className="min-h-9 px-3 py-2 text-xs"
-          onClick={clearCanvas}
-          type="button"
-        >
-          <RotateCcw size={15} />
-          Clear drawing
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant={tool === "pencil" ? "primary" : "secondary"}
+            className="min-h-9 px-3 py-2 text-xs"
+            onClick={() => setTool("pencil")}
+            type="button"
+          >
+            <PencilLine size={15} />
+            Pencil
+          </Button>
+          <Button
+            variant={tool === "eraser" ? "primary" : "secondary"}
+            className="min-h-9 px-3 py-2 text-xs"
+            onClick={() => setTool("eraser")}
+            type="button"
+          >
+            <Eraser size={15} />
+            Eraser
+          </Button>
+          <Button
+            variant="secondary"
+            className="min-h-9 px-3 py-2 text-xs"
+            onClick={clearCanvas}
+            type="button"
+          >
+            <RotateCcw size={15} />
+            Clear
+          </Button>
+        </div>
       </div>
 
       <label className="mt-4 block">

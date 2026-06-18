@@ -10,7 +10,6 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
-import { useXpFloat } from "../../hooks/useXpFloat";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
@@ -33,7 +32,6 @@ export function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
-  const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
@@ -95,7 +93,7 @@ export function FlashcardsPage() {
     setIndex((value) => (value + direction + cards.length) % cards.length);
   };
 
-  const rate = (correct: boolean, anchorEl?: HTMLElement | null) => {
+  const rate = (correct: boolean) => {
     const nextRatedIds = new Set(ratedIds);
     nextRatedIds.add(current.id);
     setRatedIds(nextRatedIds);
@@ -109,7 +107,6 @@ export function FlashcardsPage() {
       },
       difficulty,
     );
-    if (correct) triggerXpFloat(10 * difficulty, anchorEl);
     if (nextRatedIds.size >= cards.length) {
       recordDailyTaskCompletion(location.pathname);
     }
@@ -167,7 +164,7 @@ export function FlashcardsPage() {
                   animate={{ rotateY: 0, opacity: 1 }}
                   exit={{ rotateY: flipped ? 90 : -90, opacity: 0 }}
                   transition={{ duration: 0.22 }}
-                  className="grid min-h-[320px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8 text-center shadow-soft"
+                  className="flashcard-surface grid min-h-[320px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8 text-center shadow-soft"
                 >
                   <div>
                     <p className="mb-5 text-xs font-extrabold uppercase text-muted">
@@ -197,10 +194,7 @@ export function FlashcardsPage() {
 
           {flipped ? (
             <div className="mt-6 grid gap-3 md:grid-cols-3">
-              <Button
-                variant="success"
-                onClick={(event) => rate(true, event.currentTarget)}
-              >
+              <Button variant="success" onClick={() => rate(true)}>
                 <CheckCircle2 size={20} /> Got it
               </Button>
               <Button variant="warning" onClick={() => rate(false)}>

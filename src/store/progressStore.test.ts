@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   getCelebrationEventsForAnswer,
   getItemAccuracyPercent,
+  getXpForAnswer,
   isProgressSnapshot,
   levelFromXp,
   xpForLevel,
 } from "./progressStore";
-import { contentIndex, getItemIdsForSubtopic } from "../content/contentIndex";
+import {
+  contentIndex,
+  getItemIdsForSubtopic,
+  getItemIdsForUnit,
+} from "../content/contentIndex";
+import { getUnitMastery } from "./mastery";
 import type {
   ActivityResult,
   ItemProgress,
@@ -72,6 +78,23 @@ describe("level helpers", () => {
   });
 });
 
+describe("XP policy", () => {
+  it("awards difficulty-scaled XP for correct non-flashcard answers", () => {
+    expect(getXpForAnswer({ activity: "quiz", correct: true }, 3)).toBe(30);
+  });
+
+  it("awards no XP for flashcard answers even when correct", () => {
+    expect(getXpForAnswer({ activity: "flashcards", correct: true }, 3)).toBe(
+      0,
+    );
+  });
+
+  it("awards no XP for incorrect answers in any activity", () => {
+    expect(getXpForAnswer({ activity: "memory", correct: false }, 3)).toBe(0);
+    expect(getXpForAnswer({ activity: "quiz", correct: false }, 1)).toBe(0);
+  });
+});
+
 describe("progress import validation", () => {
   it("accepts a complete version 1 progress snapshot", () => {
     expect(isProgressSnapshot(makeSnapshot())).toBe(true);
@@ -103,6 +126,22 @@ describe("celebration event detection", () => {
 
     expect(events.filter((event) => event.type === "correct")).toHaveLength(1);
     expect(events.some((event) => event.type === "incorrect")).toBe(false);
+  });
+
+  it("allows correct events with zero XP without emitting level-up", () => {
+    const events = getCelebrationEventsForAnswer({
+      before: makeSnapshot(),
+      after: makeSnapshot(),
+      result: { ...answer("u1-fc-1", true), activity: "flashcards" },
+      xpGained: 0,
+      dailyGoalCompletedByAnswer: false,
+      streakIncrementedByAnswer: false,
+    });
+
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "correct", xpGained: 0 }),
+    );
+    expect(events.some((event) => event.type === "level-up")).toBe(false);
   });
 
   it("emits level-up when an answer crosses a level boundary", () => {
@@ -199,5 +238,23 @@ describe("item accuracy", () => {
 
   it("falls back to correctCount for older progress data", () => {
     expect(getItemAccuracyPercent({ attempts: 4, correctCount: 2 })).toBe(50);
+  });
+});
+
+describe("unit mastery regressions", () => {
+  it("reports Unit 2 as 39 / 39 and 100% when all Unit 2 items are known", () => {
+    const unit = contentIndex.unitsById.get("u2");
+    expect(unit).toBeDefined();
+    if (!unit) return;
+
+    const progress = Object.fromEntries(
+      getItemIdsForUnit(unit).map((id) => [id, makeItemProgress(id)]),
+    );
+    const mastery = getUnitMastery(unit, progress);
+
+    expect(mastery.known).toBe(39);
+    expect(mastery.total).toBe(39);
+    expect(mastery.percent).toBe(100);
+    expect(mastery.state).toBe("Mastered");
   });
 });

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
-import { useProgressStore } from "../../store/progressStore";
+import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
 
 type Mode =
@@ -92,16 +92,14 @@ export function ConversionTrainerPage() {
         ? "Correct drill answer."
         : `Expected: ${problem.answer}`,
     });
-    recordAnswer(
-      {
-        itemId: getMasteryItemId(mode, problem),
-        correct,
-        activity: "convert",
-        timestamp: Date.now(),
-      },
-      2,
-    );
-    if (correct) triggerXpFloat(20, anchorEl);
+    const result = {
+      itemId: getMasteryItemId(mode, problem),
+      correct,
+      activity: "convert" as const,
+      timestamp: Date.now(),
+    };
+    recordAnswer(result, 2);
+    if (correct) triggerXpFloat(getXpForAnswer(result, 2), anchorEl);
     recordDailyTaskCompletion(location.pathname);
   };
 

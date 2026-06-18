@@ -151,7 +151,11 @@ function getCue(event: CelebrationEvent): SoundCue | null {
 }
 
 function getAnnouncement(event: CelebrationEvent) {
-  if (event.type === "correct") return `Correct. ${event.xpGained} XP earned.`;
+  if (event.type === "correct") {
+    return event.xpGained > 0
+      ? `Correct. ${event.xpGained} XP earned.`
+      : "Correct.";
+  }
   if (event.type === "incorrect") return "Not quite. Keep going.";
   if (event.type === "level-up") return `Level ${event.level} reached.`;
   if (event.type === "daily-goal") return "Daily goal complete.";

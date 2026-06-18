@@ -12,7 +12,7 @@ import {
   parseScope,
 } from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
-import { useProgressStore } from "../../store/progressStore";
+import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
 import { shuffle, takeRound } from "../shared/activityUtils";
 
 export function MatchGamePage() {
@@ -99,17 +99,15 @@ export function MatchGamePage() {
     const correct = selectedTerm === card.id;
     const difficulty = getDefaultDifficulty(card.difficulty);
     setMoves((value) => value + 1);
-    recordAnswer(
-      {
-        itemId: selectedTerm,
-        correct,
-        activity: "match",
-        timestamp: Date.now(),
-      },
-      difficulty,
-    );
+    const result = {
+      itemId: selectedTerm,
+      correct,
+      activity: "match" as const,
+      timestamp: Date.now(),
+    };
+    recordAnswer(result, difficulty);
     if (correct) {
-      triggerXpFloat(10 * difficulty, anchorEl);
+      triggerXpFloat(getXpForAnswer(result, difficulty), anchorEl);
       setWrongMatch(null);
       const nextMatched = { ...matched, [card.id]: true };
       setMatched(nextMatched);

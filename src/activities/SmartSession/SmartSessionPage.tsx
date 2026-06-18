@@ -13,7 +13,7 @@ import { Button } from "../../components/ui/Button";
 import { ProgressRing } from "../../components/ui/ProgressRing";
 import { getDefaultDifficulty } from "../../content/contentIndex";
 import type { Flashcard, MCQ } from "../../data/contentTypes";
-import { useProgressStore } from "../../store/progressStore";
+import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
 import {
   planSmartSession,
   type SmartSessionItem,
@@ -74,22 +74,21 @@ export function SmartSessionPage() {
   const answer = (correct: boolean, anchorEl?: HTMLElement | null) => {
     if (!current || revealed) return;
     const difficulty = getDefaultDifficulty(current.item.difficulty);
-    const xpGained = correct ? 10 * difficulty : 2;
+    const result = {
+      itemId: current.id,
+      correct,
+      activity:
+        current.type === "mcq" ? ("quiz" as const) : ("flashcards" as const),
+      timestamp: Date.now(),
+    };
+    const xpGained = getXpForAnswer(result, difficulty);
     setRevealed(true);
     setAnswers((value) => [
       ...value,
       { id: current.id, type: current.type, correct, xpGained },
     ]);
-    recordAnswer(
-      {
-        itemId: current.id,
-        correct,
-        activity: current.type === "mcq" ? "quiz" : "flashcards",
-        timestamp: Date.now(),
-      },
-      difficulty,
-    );
-    if (correct) triggerXpFloat(xpGained, anchorEl);
+    recordAnswer(result, difficulty);
+    if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
   };
 
   const next = () => {
@@ -286,7 +285,7 @@ function SmartFlashcard({
     <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
       <div className="mx-auto max-w-4xl text-center">
         <p className="text-sm font-black uppercase text-muted">Flashcard</p>
-        <div className="mt-4 grid min-h-[260px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8">
+        <div className="flashcard-surface mt-4 grid min-h-[260px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8">
           <div>
             <p className="text-2xl font-extrabold leading-snug md:text-4xl">
               {revealed ? item.definition : item.term}
@@ -342,7 +341,7 @@ function Results({
       <ProgressRing value={percent} size={96} color="#22c55e" />
       <h1 className="mt-5 text-3xl font-extrabold">Smart session complete</h1>
       <p className="mt-2 text-muted">
-        You scored {correct} / {answers.length} and earned about {xp} XP.
+        You scored {correct} / {answers.length} and earned {xp} XP.
       </p>
       <div className="mt-5 grid gap-3 text-sm font-bold md:grid-cols-3">
         <span className="rounded-lg bg-indigo-50 p-3 text-primary">

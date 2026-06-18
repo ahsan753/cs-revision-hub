@@ -121,6 +121,14 @@ export function xpForLevel(level: number) {
   return Math.max(0, Math.pow(level - 1, 2) * 90);
 }
 
+export function getXpForAnswer(
+  result: Pick<ActivityResult, "activity" | "correct">,
+  difficulty: 1 | 2 | 3 = 1,
+) {
+  if (!result.correct || result.activity === "flashcards") return 0;
+  return 10 * difficulty;
+}
+
 function freshProgress(): ProgressSnapshot {
   return {
     version: 1,
@@ -559,7 +567,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
       set((state) => {
         const before = toProgressSnapshot(state);
         const daily = currentDailyProgress(state.dailyProgress);
-        const gainedXp = result.correct ? 10 * difficulty : 2;
+        const gainedXp = getXpForAnswer(result, difficulty);
         const answered = daily.answered + 1;
         const xp = state.xp + gainedXp;
         const completedNow = isDailyGoalComplete(answered, state.dailyGoal);
