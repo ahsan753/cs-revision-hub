@@ -22,6 +22,8 @@ function shuffled<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
+type FlashcardRating = "correct" | "almost" | "missed";
+
 export function FlashcardsPage() {
   const { scope: scopeParam } = useParams();
   const location = useLocation();
@@ -30,7 +32,7 @@ export function FlashcardsPage() {
   const [cards, setCards] = useState(sourceCards);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set());
+  const [ratings, setRatings] = useState<Record<string, FlashcardRating>>({});
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
@@ -43,7 +45,7 @@ export function FlashcardsPage() {
     setCards(sourceCards);
     setIndex(0);
     setFlipped(false);
-    setRatedIds(new Set());
+    setRatings({});
   }, [sourceCards]);
 
   useEffect(() => {
@@ -93,10 +95,10 @@ export function FlashcardsPage() {
     setIndex((value) => (value + direction + cards.length) % cards.length);
   };
 
-  const rate = (correct: boolean) => {
-    const nextRatedIds = new Set(ratedIds);
-    nextRatedIds.add(current.id);
-    setRatedIds(nextRatedIds);
+  const rate = (rating: FlashcardRating) => {
+    const correct = rating === "correct";
+    const nextRatings = { ...ratings, [current.id]: rating };
+    setRatings(nextRatings);
     const difficulty = getDefaultDifficulty(current.difficulty);
     recordAnswer(
       {
@@ -107,7 +109,7 @@ export function FlashcardsPage() {
       },
       difficulty,
     );
-    if (nextRatedIds.size >= cards.length) {
+    if (Object.keys(nextRatings).length >= cards.length) {
       recordDailyTaskCompletion(location.pathname);
     }
     move(1);
@@ -141,7 +143,7 @@ export function FlashcardsPage() {
               setCards(shuffled(cards));
               setIndex(0);
               setFlipped(false);
-              setRatedIds(new Set());
+              setRatings({});
             }}
           >
             <Shuffle size={17} /> Shuffle
@@ -149,73 +151,130 @@ export function FlashcardsPage() {
         </div>
       </div>
 
-      <section className="rounded-lg border border-line bg-white p-4 shadow-soft md:p-6">
-        <div className="mx-auto max-w-4xl">
-          <button
-            className="block w-full rounded-lg text-left"
-            onClick={flipCard}
-            aria-label={flipped ? "Show front of card" : "Show back of card"}
-          >
-            <div className="relative min-h-[320px] perspective-1000">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={`${current.id}-${flipped ? "back" : "front"}`}
-                  initial={{ rotateY: flipped ? -90 : 90, opacity: 0 }}
-                  animate={{ rotateY: 0, opacity: 1 }}
-                  exit={{ rotateY: flipped ? 90 : -90, opacity: 0 }}
-                  transition={{ duration: 0.22 }}
-                  className="flashcard-surface grid min-h-[320px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8 text-center shadow-soft"
-                >
-                  <div>
-                    <p className="mb-5 text-xs font-extrabold uppercase text-muted">
-                      {flipped ? "Back" : "Front"}
-                    </p>
-                    <p className="text-2xl font-extrabold leading-snug md:text-4xl">
-                      {flipped ? current.definition : current.term}
-                    </p>
-                    <p className="mt-6 text-sm font-bold text-primary">
-                      Tap or press Space to flip
-                    </p>
-                  </div>
-                </motion.div>
-              </AnimatePresence>
+      <section className="grid gap-4 lg:grid-cols-[1fr_300px]">
+        <div className="rounded-lg border border-line bg-white p-4 shadow-soft md:p-6">
+          <div className="mx-auto max-w-4xl">
+            <button
+              className="block w-full rounded-lg text-left"
+              onClick={flipCard}
+              aria-label={flipped ? "Show front of card" : "Show back of card"}
+            >
+              <div className="relative min-h-[320px] perspective-1000">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={`${current.id}-${flipped ? "back" : "front"}`}
+                    initial={{ rotateY: flipped ? -90 : 90, opacity: 0 }}
+                    animate={{ rotateY: 0, opacity: 1 }}
+                    exit={{ rotateY: flipped ? 90 : -90, opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="flashcard-surface grid min-h-[320px] place-items-center rounded-lg border border-line bg-gradient-to-br from-white to-indigo-50 p-8 text-center shadow-soft"
+                  >
+                    <div>
+                      <p className="mb-5 text-xs font-extrabold uppercase text-muted">
+                        {flipped ? "Back" : "Front"}
+                      </p>
+                      <p className="text-2xl font-extrabold leading-snug md:text-4xl">
+                        {flipped ? current.definition : current.term}
+                      </p>
+                      <p className="mt-6 text-sm font-bold text-primary">
+                        Tap or press Space to flip
+                      </p>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            </button>
+
+            <div className="mt-5 flex justify-center gap-2">
+              {cards.map((card, cardIndex) => (
+                <span
+                  key={card.id}
+                  className={`h-2.5 w-2.5 rounded-full ${cardIndex === index ? "bg-primary" : "bg-slate-300"}`}
+                  aria-hidden="true"
+                />
+              ))}
             </div>
-          </button>
 
-          <div className="mt-5 flex justify-center gap-2">
-            {cards.map((card, cardIndex) => (
-              <span
-                key={card.id}
-                className={`h-2.5 w-2.5 rounded-full ${cardIndex === index ? "bg-primary" : "bg-slate-300"}`}
-                aria-hidden="true"
-              />
-            ))}
-          </div>
+            {flipped ? (
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                <Button variant="success" onClick={() => rate("correct")}>
+                  <CheckCircle2 size={20} /> Got it
+                </Button>
+                <Button variant="warning" onClick={() => rate("almost")}>
+                  <RotateCcw size={20} /> Almost
+                </Button>
+                <Button variant="danger" onClick={() => rate("missed")}>
+                  <XCircle size={20} /> Missed
+                </Button>
+              </div>
+            ) : null}
 
-          {flipped ? (
-            <div className="mt-6 grid gap-3 md:grid-cols-3">
-              <Button variant="success" onClick={() => rate(true)}>
-                <CheckCircle2 size={20} /> Got it
+            <div className="mt-5 flex items-center justify-between">
+              <Button variant="ghost" onClick={() => move(-1)}>
+                <ArrowLeft size={18} /> Previous
               </Button>
-              <Button variant="warning" onClick={() => rate(false)}>
-                <RotateCcw size={20} /> Almost
-              </Button>
-              <Button variant="danger" onClick={() => rate(false)}>
-                <XCircle size={20} /> Missed
+              <Button variant="ghost" onClick={() => move(1)}>
+                Next <ArrowRight size={18} />
               </Button>
             </div>
-          ) : null}
-
-          <div className="mt-5 flex items-center justify-between">
-            <Button variant="ghost" onClick={() => move(-1)}>
-              <ArrowLeft size={18} /> Previous
-            </Button>
-            <Button variant="ghost" onClick={() => move(1)}>
-              Next <ArrowRight size={18} />
-            </Button>
           </div>
         </div>
+
+        <aside className="rounded-lg border border-line bg-white shadow-soft">
+          <div className="border-b border-line bg-slate-50 p-4">
+            <h2 className="text-sm font-extrabold">Review list</h2>
+            <p className="mt-1 text-xs font-semibold text-muted">
+              {Object.keys(ratings).length} / {cards.length} rated
+            </p>
+          </div>
+          <div className="max-h-[560px] space-y-2 overflow-auto p-3">
+            {cards.map((card, cardIndex) => (
+              <button
+                key={card.id}
+                className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left transition ${
+                  cardIndex === index
+                    ? "border-primary bg-indigo-50"
+                    : "border-line bg-white hover:border-primary"
+                }`}
+                onClick={() => {
+                  setIndex(cardIndex);
+                  setFlipped(false);
+                }}
+              >
+                <ReviewStatus rating={ratings[card.id]} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-extrabold">
+                    {card.term}
+                  </span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">
+                    {ratings[card.id]
+                      ? getRatingLabel(ratings[card.id])
+                      : "Not rated yet"}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </aside>
       </section>
     </div>
   );
+}
+
+function ReviewStatus({ rating }: { rating?: FlashcardRating }) {
+  if (rating === "correct")
+    return (
+      <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={18} />
+    );
+  if (rating === "almost")
+    return <RotateCcw className="mt-0.5 shrink-0 text-amber-600" size={18} />;
+  if (rating === "missed")
+    return <XCircle className="mt-0.5 shrink-0 text-rose-600" size={18} />;
+  return <span className="mt-1 h-3 w-3 shrink-0 rounded-full bg-slate-300" />;
+}
+
+function getRatingLabel(rating: FlashcardRating) {
+  if (rating === "correct") return "Got it";
+  if (rating === "almost") return "Almost";
+  return "Missed";
 }

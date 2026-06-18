@@ -98,6 +98,7 @@ export type ProgressState = ProgressSnapshot &
   };
 
 const dayMs = 24 * 60 * 60 * 1000;
+export const maxNameLength = 30;
 const intervals: Record<number, number> = {
   1: 0,
   2: dayMs,
@@ -677,7 +678,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
     },
     setName: (name) => {
       set((state) => {
-        const trimmed = name.trim();
+        const trimmed = name.trim().slice(0, maxNameLength);
         return {
           ...persist({
             ...toProgressSnapshot(state),

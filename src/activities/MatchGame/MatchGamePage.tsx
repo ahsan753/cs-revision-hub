@@ -35,6 +35,7 @@ export function MatchGamePage() {
   const [moves, setMoves] = useState(0);
   const [feedback, setFeedback] = useState("");
   const wrongMatchTimer = useRef<number | null>(null);
+  const matchedIdsRef = useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const { triggerXpFloat } = useXpFloat();
@@ -63,6 +64,7 @@ export function MatchGamePage() {
     setDefinitions(shuffle(next));
     setSelectedTerm(null);
     setMatched({});
+    matchedIdsRef.current = new Set();
     setWrongMatch(null);
     setMoves(0);
     setFeedback("");
@@ -89,13 +91,20 @@ export function MatchGamePage() {
     setDefinitions(shuffle(next));
     setSelectedTerm(null);
     setMatched({});
+    matchedIdsRef.current = new Set();
     setWrongMatch(null);
     setMoves(0);
     setFeedback("");
   };
 
   const chooseDefinition = (card: Flashcard, anchorEl?: HTMLElement | null) => {
-    if (!selectedTerm || wrongMatch || matched[card.id]) return;
+    if (
+      !selectedTerm ||
+      wrongMatch ||
+      matched[card.id] ||
+      matchedIdsRef.current.has(card.id)
+    )
+      return;
     const correct = selectedTerm === card.id;
     const difficulty = getDefaultDifficulty(card.difficulty);
     setMoves((value) => value + 1);
@@ -107,6 +116,7 @@ export function MatchGamePage() {
     };
     recordAnswer(result, difficulty);
     if (correct) {
+      matchedIdsRef.current.add(card.id);
       triggerXpFloat(getXpForAnswer(result, difficulty), anchorEl);
       setWrongMatch(null);
       const nextMatched = { ...matched, [card.id]: true };

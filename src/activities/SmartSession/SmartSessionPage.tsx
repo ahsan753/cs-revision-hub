@@ -6,7 +6,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useXpFloat } from "../../hooks/useXpFloat";
 import { Button } from "../../components/ui/Button";
@@ -38,6 +38,7 @@ export function SmartSessionPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [flashcardRevealed, setFlashcardRevealed] = useState(false);
+  const answeredItemRef = useRef<string | null>(null);
 
   const current = plan.items[index];
   const complete = plan.items.length > 0 && index >= plan.items.length;
@@ -51,6 +52,7 @@ export function SmartSessionPage() {
     setSelected(null);
     setRevealed(false);
     setFlashcardRevealed(false);
+    answeredItemRef.current = null;
   };
 
   if (plan.items.length === 0) {
@@ -72,7 +74,8 @@ export function SmartSessionPage() {
   }
 
   const answer = (correct: boolean, anchorEl?: HTMLElement | null) => {
-    if (!current || revealed) return;
+    if (!current || revealed || answeredItemRef.current === current.id) return;
+    answeredItemRef.current = current.id;
     const difficulty = getDefaultDifficulty(current.item.difficulty);
     const result = {
       itemId: current.id,
@@ -96,6 +99,7 @@ export function SmartSessionPage() {
     setSelected(null);
     setRevealed(false);
     setFlashcardRevealed(false);
+    answeredItemRef.current = null;
   };
 
   return (

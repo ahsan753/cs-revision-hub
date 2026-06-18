@@ -3,12 +3,17 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: light;
   color: #101631;
   background: #f8fbff;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   --focus: 0 0 0 3px rgba(79, 70, 229, 0.25);
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 * {

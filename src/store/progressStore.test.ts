@@ -5,6 +5,8 @@ import {
   getXpForAnswer,
   isProgressSnapshot,
   levelFromXp,
+  maxNameLength,
+  useProgressStore,
   xpForLevel,
 } from "./progressStore";
 import {
@@ -110,6 +112,17 @@ describe("progress import validation", () => {
     expect(isProgressSnapshot({ version: 1 })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), history: {} })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), version: 2 })).toBe(false);
+  });
+});
+
+describe("profile settings", () => {
+  it("limits saved names to 30 characters", () => {
+    const longName = "A".repeat(maxNameLength + 10);
+
+    useProgressStore.getState().setName(longName);
+
+    expect(useProgressStore.getState().name).toHaveLength(maxNameLength);
+    useProgressStore.getState().resetProgress();
   });
 });
 

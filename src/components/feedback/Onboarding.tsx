@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/Button";
-import { useProgressStore } from "../../store/progressStore";
+import { maxNameLength, useProgressStore } from "../../store/progressStore";
 import { ONBOARDED_KEY, REPLAY_ONBOARDING_EVENT } from "./onboardingEvents";
 
 const cards = [
@@ -95,6 +95,7 @@ export function Onboarding() {
               onChange={(event) => setDraftName(event.target.value)}
               placeholder="Optional"
               autoComplete="given-name"
+              maxLength={maxNameLength}
             />
           </label>
         ) : null}

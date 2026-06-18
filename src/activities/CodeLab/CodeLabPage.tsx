@@ -7,7 +7,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
@@ -27,6 +27,12 @@ import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
 import { normaliseText, shuffle } from "../shared/activityUtils";
 
 type CodeLabResult = { correct: boolean; message: string };
+type CodeLabDraft = {
+  predictAnswer?: string;
+  blankAnswers?: Record<string, string>;
+  parsonsLines?: string[];
+  result?: CodeLabResult | null;
+};
 
 export function CodeLabPage() {
   const { scope: scopeParam } = useParams();
@@ -34,23 +40,39 @@ export function CodeLabPage() {
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const tasks = useMemo(() => getCodeTasksForScope(scope), [scope]);
   const [index, setIndex] = useState(0);
-  const [result, setResult] = useState<CodeLabResult | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, CodeLabDraft>>({});
+  const correctTaskIdsRef = useRef<Set<string>>(new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
   const task = tasks[index];
+  const taskDraft = task ? (drafts[task.id] ?? {}) : {};
+  const result = taskDraft.result ?? null;
 
   useEffect(() => {
     setIndex(0);
-    setResult(null);
+    setDrafts({});
+    correctTaskIdsRef.current = new Set();
   }, [tasks]);
+
+  const updateDraft = (taskId: string, patch: Partial<CodeLabDraft>) => {
+    setDrafts((value) => ({
+      ...value,
+      [taskId]: {
+        ...value[taskId],
+        ...patch,
+      },
+    }));
+  };
 
   const report = (correct: boolean, message: string) => {
     if (!task) return;
+    if (correct && correctTaskIdsRef.current.has(task.id)) return;
+    if (correct) correctTaskIdsRef.current.add(task.id);
     const difficulty = getDefaultDifficulty(task.difficulty);
-    setResult({ correct, message });
+    updateDraft(task.id, { result: { correct, message } });
     const result = {
       itemId: task.id,
       correct,
@@ -116,8 +138,9 @@ export function CodeLabPage() {
           <TaskRenderer
             key={task.id}
             task={task}
+            draft={taskDraft}
             result={result}
-            onDraftChange={() => setResult(null)}
+            updateDraft={(patch) => updateDraft(task.id, patch)}
             onResult={report}
           />
         </div>
@@ -162,7 +185,6 @@ export function CodeLabPage() {
                 disabled={index === 0}
                 onClick={() => {
                   setIndex((value) => Math.max(0, value - 1));
-                  setResult(null);
                 }}
               >
                 Previous
@@ -171,7 +193,6 @@ export function CodeLabPage() {
                 disabled={index === tasks.length - 1}
                 onClick={() => {
                   setIndex((value) => Math.min(tasks.length - 1, value + 1));
-                  setResult(null);
                 }}
               >
                 Next
@@ -186,21 +207,24 @@ export function CodeLabPage() {
 
 function TaskRenderer({
   task,
+  draft,
   result,
-  onDraftChange,
+  updateDraft,
   onResult,
 }: {
   task: CodeTask;
+  draft: CodeLabDraft;
   result: CodeLabResult | null;
-  onDraftChange: () => void;
+  updateDraft: (patch: Partial<CodeLabDraft>) => void;
   onResult: (correct: boolean, message: string) => void;
 }) {
   if (task.type === "predict-output")
     return (
       <PredictOutput
         task={task}
+        draft={draft}
         result={result}
-        onDraftChange={onDraftChange}
+        updateDraft={updateDraft}
         onResult={onResult}
       />
     );
@@ -208,16 +232,18 @@ function TaskRenderer({
     return (
       <FillBlank
         task={task}
+        draft={draft}
         result={result}
-        onDraftChange={onDraftChange}
+        updateDraft={updateDraft}
         onResult={onResult}
       />
     );
   return (
     <Parsons
       task={task}
+      draft={draft}
       result={result}
-      onDraftChange={onDraftChange}
+      updateDraft={updateDraft}
       onResult={onResult}
     />
   );
@@ -225,16 +251,18 @@ function TaskRenderer({
 
 function PredictOutput({
   task,
+  draft,
   result,
-  onDraftChange,
+  updateDraft,
   onResult,
 }: {
   task: PredictOutputTask;
+  draft: CodeLabDraft;
   result: CodeLabResult | null;
-  onDraftChange: () => void;
+  updateDraft: (patch: Partial<CodeLabDraft>) => void;
   onResult: (correct: boolean, message: string) => void;
 }) {
-  const [answer, setAnswer] = useState("");
+  const answer = draft.predictAnswer ?? "";
   const accept = [task.answer, ...(task.accept ?? [])].map(normaliseText);
   const submittedState = result
     ? result.correct
@@ -260,16 +288,17 @@ function PredictOutput({
           className={`mt-2 min-h-28 w-full rounded-lg border p-3 font-mono text-sm transition ${fieldStateClass}`}
           value={answer}
           onChange={(event) => {
-            setAnswer(event.target.value);
-            onDraftChange();
+            updateDraft({ predictAnswer: event.target.value, result: null });
           }}
           placeholder="Type the exact output"
           aria-invalid={submittedState === "incorrect" ? true : undefined}
+          readOnly={result?.correct}
         />
       </label>
       <Button
         variant={result ? (result.correct ? "success" : "danger") : "primary"}
         onClick={check}
+        disabled={result?.correct}
       >
         {result ? (
           result.correct ? (
@@ -286,16 +315,18 @@ function PredictOutput({
 
 function FillBlank({
   task,
+  draft,
   result,
-  onDraftChange,
+  updateDraft,
   onResult,
 }: {
   task: FillBlankTask;
+  draft: CodeLabDraft;
   result: CodeLabResult | null;
-  onDraftChange: () => void;
+  updateDraft: (patch: Partial<CodeLabDraft>) => void;
   onResult: (correct: boolean, message: string) => void;
 }) {
-  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const answers = draft.blankAnswers ?? {};
   const correct = task.blanks.every((blank) => {
     const value = answers[blank.id] ?? "";
     return isBlankAnswerCorrect(task, blank, value);
@@ -313,11 +344,13 @@ function FillBlank({
               className={`mt-2 min-h-11 w-full rounded-lg border px-3 font-mono text-sm transition ${blankInputClass(task, blank, answers[blank.id] ?? "", result)}`}
               value={answers[blank.id] ?? ""}
               onChange={(event) => {
-                setAnswers((value) => ({
-                  ...value,
-                  [blank.id]: event.target.value,
-                }));
-                onDraftChange();
+                updateDraft({
+                  blankAnswers: {
+                    ...answers,
+                    [blank.id]: event.target.value,
+                  },
+                  result: null,
+                });
               }}
               aria-invalid={
                 result &&
@@ -325,6 +358,7 @@ function FillBlank({
                   ? true
                   : undefined
               }
+              readOnly={result?.correct}
             />
           </label>
         ))}
@@ -339,6 +373,7 @@ function FillBlank({
               : "One or more blanks need another look.",
           )
         }
+        disabled={result?.correct}
       >
         {result ? (
           result.correct ? (
@@ -380,26 +415,30 @@ function isBlankAnswerCorrect(
 
 function Parsons({
   task,
+  draft,
   result,
-  onDraftChange,
+  updateDraft,
   onResult,
 }: {
   task: ParsonsTask;
+  draft: CodeLabDraft;
   result: CodeLabResult | null;
-  onDraftChange: () => void;
+  updateDraft: (patch: Partial<CodeLabDraft>) => void;
   onResult: (correct: boolean, message: string) => void;
 }) {
-  const [lines, setLines] = useState(() =>
-    shuffle([...task.lines, ...(task.distractors ?? [])]),
+  const fallbackLines = useMemo(
+    () => shuffle([...task.lines, ...(task.distractors ?? [])]),
+    [task],
   );
+  const lines = draft.parsonsLines ?? fallbackLines;
   const move = (from: number, direction: -1 | 1) => {
     const to = from + direction;
     if (to < 0 || to >= lines.length) return;
-    onDraftChange();
-    setLines((value) => {
-      const next = [...value];
-      [next[from], next[to]] = [next[to], next[from]];
-      return next;
+    const next = [...lines];
+    [next[from], next[to]] = [next[to], next[from]];
+    updateDraft({
+      parsonsLines: next,
+      result: null,
     });
   };
   const check = () => {
@@ -407,6 +446,7 @@ function Parsons({
     const correct =
       used.length === task.lines.length &&
       used.every((line, i) => line === task.lines[i]);
+    updateDraft({ parsonsLines: lines });
     onResult(
       correct,
       correct
@@ -433,6 +473,7 @@ function Parsons({
               className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white"
               onClick={() => move(index, -1)}
               aria-label="Move line up"
+              disabled={result?.correct}
             >
               <ArrowUp size={17} />
             </button>
@@ -440,6 +481,7 @@ function Parsons({
               className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white"
               onClick={() => move(index, 1)}
               aria-label="Move line down"
+              disabled={result?.correct}
             >
               <ArrowDown size={17} />
             </button>
@@ -450,6 +492,7 @@ function Parsons({
         <Button
           variant={result ? (result.correct ? "success" : "danger") : "primary"}
           onClick={check}
+          disabled={result?.correct}
         >
           {result ? (
             result.correct ? (
@@ -462,9 +505,15 @@ function Parsons({
         </Button>
         <Button
           variant="ghost"
+          disabled={result?.correct}
           onClick={() => {
-            setLines(shuffle([...task.lines, ...(task.distractors ?? [])]));
-            onDraftChange();
+            updateDraft({
+              parsonsLines: shuffle([
+                ...task.lines,
+                ...(task.distractors ?? []),
+              ]),
+              result: null,
+            });
           }}
         >
           <RotateCcw size={17} /> Shuffle

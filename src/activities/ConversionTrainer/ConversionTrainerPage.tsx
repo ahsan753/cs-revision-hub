@@ -5,12 +5,13 @@ import {
   RefreshCw,
   XCircle,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
 import { getXpForAnswer, useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
+import { WorkingOutBox } from "../shared/WorkingOutBox";
 
 type Mode =
   | "denary-binary"
@@ -47,6 +48,7 @@ export function ConversionTrainerPage() {
   const [problem, setProblem] = useState(() =>
     generateProblem("denary-binary"),
   );
+  const [problemNonce, setProblemNonce] = useState(0);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<{
     correct: boolean;
@@ -57,6 +59,8 @@ export function ConversionTrainerPage() {
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
+  const awardedProblemKeysRef = useRef<Set<string>>(new Set());
+  const problemKey = `${problem.id}:${problemNonce}`;
   const submittedState = result
     ? result.correct
       ? "correct"
@@ -72,34 +76,39 @@ export function ConversionTrainerPage() {
   const setModeAndProblem = (nextMode: Mode) => {
     setMode(nextMode);
     setProblem(generateProblem(nextMode));
+    setProblemNonce((value) => value + 1);
     setAnswer("");
     setResult(null);
   };
 
   const nextProblem = () => {
     setProblem(generateProblem(mode));
+    setProblemNonce((value) => value + 1);
     setAnswer("");
     setResult(null);
   };
 
   const check = (anchorEl?: HTMLElement | null) => {
+    if (result?.correct || awardedProblemKeysRef.current.has(problemKey))
+      return;
     const correct = problem.accept
       .map(normaliseText)
       .includes(normaliseText(answer));
+    if (correct) awardedProblemKeysRef.current.add(problemKey);
     setResult({
       correct,
       message: correct
         ? "Correct drill answer."
         : `Expected: ${problem.answer}`,
     });
-    const result = {
+    const answerResult = {
       itemId: getMasteryItemId(mode, problem),
       correct,
       activity: "convert" as const,
       timestamp: Date.now(),
     };
-    recordAnswer(result, 2);
-    if (correct) triggerXpFloat(getXpForAnswer(result, 2), anchorEl);
+    recordAnswer(answerResult, 2);
+    if (correct) triggerXpFloat(getXpForAnswer(answerResult, 2), anchorEl);
     recordDailyTaskCompletion(location.pathname);
   };
 
@@ -163,8 +172,11 @@ export function ConversionTrainerPage() {
               }}
               placeholder="Type your answer"
               aria-invalid={submittedState === "incorrect" ? true : undefined}
+              readOnly={result?.correct}
             />
           </label>
+
+          <WorkingOutBox itemId={problemKey} />
 
           <div className="mt-5 flex flex-wrap gap-2">
             <Button
@@ -172,7 +184,7 @@ export function ConversionTrainerPage() {
                 result ? (result.correct ? "success" : "danger") : "primary"
               }
               onClick={(event) => check(event.currentTarget)}
-              disabled={!answer.trim()}
+              disabled={!answer.trim() || result?.correct}
             >
               {result ? (
                 result.correct ? (

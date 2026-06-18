@@ -32,6 +32,7 @@ export function MemoryGamePage() {
   const [matched, setMatched] = useState<Record<string, boolean>>({});
   const [moves, setMoves] = useState(0);
   const closeTimer = useRef<number | null>(null);
+  const matchedPairIdsRef = useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const { triggerXpFloat } = useXpFloat();
@@ -58,6 +59,7 @@ export function MemoryGamePage() {
     setDeck(makeDeck(sourceCards));
     setOpen([]);
     setMatched({});
+    matchedPairIdsRef.current = new Set();
     setMoves(0);
   }, [sourceCards]);
 
@@ -69,11 +71,17 @@ export function MemoryGamePage() {
     setDeck(makeDeck(sourceCards));
     setOpen([]);
     setMatched({});
+    matchedPairIdsRef.current = new Set();
     setMoves(0);
   };
 
   const flip = (card: MemoryCard, anchorEl?: HTMLElement | null) => {
-    if (matched[card.pairId] || open.includes(card.key) || open.length === 2)
+    if (
+      matched[card.pairId] ||
+      matchedPairIdsRef.current.has(card.pairId) ||
+      open.includes(card.key) ||
+      open.length === 2
+    )
       return;
     const nextOpen = [...open, card.key];
     setOpen(nextOpen);
@@ -93,6 +101,7 @@ export function MemoryGamePage() {
       };
       recordAnswer(result, difficulty);
       if (correct) {
+        matchedPairIdsRef.current.add(second.pairId);
         triggerXpFloat(getXpForAnswer(result, difficulty), anchorEl);
         const nextMatched = { ...matched, [second.pairId]: true };
         setMatched(nextMatched);
