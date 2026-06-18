@@ -99,8 +99,68 @@ a {
   background-color: #334155 !important;
 }
 
+.dark .bg-indigo-50 {
+  background-color: #312e81 !important;
+}
+
+.dark .bg-blue-50 {
+  background-color: #1e3a8a !important;
+}
+
+.dark .bg-emerald-50 {
+  background-color: #064e3b !important;
+}
+
+.dark .bg-emerald-100 {
+  background-color: #065f46 !important;
+}
+
+.dark .bg-rose-50 {
+  background-color: #4c0519 !important;
+}
+
+.dark .bg-red-50 {
+  background-color: #450a0a !important;
+}
+
+.dark .bg-amber-50 {
+  background-color: #451a03 !important;
+}
+
+.dark .bg-amber-100 {
+  background-color: #78350f !important;
+}
+
+.dark .bg-orange-50 {
+  background-color: #431407 !important;
+}
+
+.dark .bg-violet-50 {
+  background-color: #3b0764 !important;
+}
+
+.dark .bg-pink-50 {
+  background-color: #500724 !important;
+}
+
+.dark .bg-indigo-50\/50 {
+  background-color: rgba(49, 46, 129, 0.48) !important;
+}
+
+.dark .ring-emerald-100 {
+  --tw-ring-color: rgba(16, 185, 129, 0.28) !important;
+}
+
+.dark .ring-rose-100 {
+  --tw-ring-color: rgba(244, 63, 94, 0.28) !important;
+}
+
 .dark .text-ink {
   color: #f8fafc !important;
+}
+
+.dark .text-primary {
+  color: #a5b4fc !important;
 }
 
 .dark .text-muted,
@@ -109,8 +169,82 @@ a {
   color: #cbd5e1 !important;
 }
 
+.dark .text-slate-400 {
+  color: #cbd5e1 !important;
+}
+
+.dark .text-indigo-600,
+.dark .text-violet-600 {
+  color: #c4b5fd !important;
+}
+
+.dark .text-blue-600 {
+  color: #bfdbfe !important;
+}
+
+.dark .text-emerald-600,
+.dark .text-emerald-700,
+.dark .text-emerald-800,
+.dark .text-emerald-950 {
+  color: #a7f3d0 !important;
+}
+
+.dark .text-rose-600,
+.dark .text-rose-700,
+.dark .text-rose-950,
+.dark .text-red-700 {
+  color: #fecdd3 !important;
+}
+
+.dark .text-amber-500,
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-orange-500,
+.dark .text-orange-700 {
+  color: #fde68a !important;
+}
+
+.dark .text-pink-600 {
+  color: #fbcfe8 !important;
+}
+
+.dark .border-indigo-200,
+.dark .border-blue-200,
+.dark .border-emerald-200,
+.dark .border-emerald-300,
+.dark .border-emerald-400,
+.dark .border-rose-200,
+.dark .border-rose-300,
+.dark .border-rose-400,
+.dark .border-red-400,
+.dark .border-amber-200,
+.dark .border-amber-300,
+.dark .border-violet-200,
+.dark .border-pink-200 {
+  border-color: #475569 !important;
+}
+
 .dark .border-line {
   border-color: #334155 !important;
+}
+
+.dark .hover\:bg-white:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover {
+  background-color: #334155 !important;
+}
+
+.dark .hover\:bg-emerald-100:hover {
+  background-color: #047857 !important;
+}
+
+.dark .hover\:bg-amber-100:hover {
+  background-color: #92400e !important;
+}
+
+.dark .hover\:bg-rose-100:hover {
+  background-color: #9f1239 !important;
 }
 
 .dark .shadow-soft {
