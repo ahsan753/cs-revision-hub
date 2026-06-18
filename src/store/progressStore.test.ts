@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
+  getCelebrationEventsForAnswer,
   getItemAccuracyPercent,
   isProgressSnapshot,
   levelFromXp,
   xpForLevel,
 } from "./progressStore";
-import type { ProgressSnapshot } from "./progressStore";
+import { contentIndex, getItemIdsForSubtopic } from "../content/contentIndex";
+import type {
+  ActivityResult,
+  ItemProgress,
+  ProgressSnapshot,
+} from "./progressStore";
 
 function makeSnapshot(
   overrides: Partial<ProgressSnapshot> = {},
@@ -35,6 +41,29 @@ function makeSnapshot(
   };
 }
 
+function makeItemProgress(id: string, correctCount = 2): ItemProgress {
+  return {
+    itemId: id,
+    attempts: correctCount,
+    correctCount,
+    correctAttempts: correctCount,
+    latestCorrect: true,
+    leitnerBox: 2,
+    nextDue: Date.now(),
+    lastActivity: "quiz",
+    lastAttemptAt: Date.now(),
+  };
+}
+
+function answer(itemId = "u1-mcq-1", correct = true): ActivityResult {
+  return {
+    itemId,
+    correct,
+    activity: "quiz",
+    timestamp: Date.now(),
+  };
+}
+
 describe("level helpers", () => {
   it("keeps level thresholds reversible at exact boundaries", () => {
     expect(levelFromXp(0)).toBe(1);
@@ -48,10 +77,112 @@ describe("progress import validation", () => {
     expect(isProgressSnapshot(makeSnapshot())).toBe(true);
   });
 
+  it("accepts older snapshots without a name", () => {
+    const snapshot = makeSnapshot();
+    delete snapshot.name;
+    expect(isProgressSnapshot(snapshot)).toBe(true);
+  });
+
   it("rejects invalid objects instead of treating them as fresh progress", () => {
     expect(isProgressSnapshot({ version: 1 })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), history: {} })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), version: 2 })).toBe(false);
+  });
+});
+
+describe("celebration event detection", () => {
+  it("emits a single correctness event for an answer", () => {
+    const events = getCelebrationEventsForAnswer({
+      before: makeSnapshot(),
+      after: makeSnapshot({ xp: 10, level: 1 }),
+      result: answer("u1-mcq-1", true),
+      xpGained: 10,
+      dailyGoalCompletedByAnswer: false,
+      streakIncrementedByAnswer: false,
+    });
+
+    expect(events.filter((event) => event.type === "correct")).toHaveLength(1);
+    expect(events.some((event) => event.type === "incorrect")).toBe(false);
+  });
+
+  it("emits level-up when an answer crosses a level boundary", () => {
+    const beforeXp = xpForLevel(2) - 2;
+    const events = getCelebrationEventsForAnswer({
+      before: makeSnapshot({ xp: beforeXp, level: levelFromXp(beforeXp) }),
+      after: makeSnapshot({ xp: beforeXp + 10, level: 2 }),
+      result: answer(),
+      xpGained: 10,
+      dailyGoalCompletedByAnswer: false,
+      streakIncrementedByAnswer: false,
+    });
+
+    expect(events.some((event) => event.type === "level-up")).toBe(true);
+  });
+
+  it("emits daily goal and streak events only when passed in from answer flow", () => {
+    const withAnswerFlags = getCelebrationEventsForAnswer({
+      before: makeSnapshot(),
+      after: makeSnapshot({ streak: 1 }),
+      result: answer(),
+      xpGained: 10,
+      dailyGoalCompletedByAnswer: true,
+      streakIncrementedByAnswer: true,
+    });
+    const withoutAnswerFlags = getCelebrationEventsForAnswer({
+      before: makeSnapshot(),
+      after: makeSnapshot({ streak: 1 }),
+      result: answer(),
+      xpGained: 10,
+      dailyGoalCompletedByAnswer: false,
+      streakIncrementedByAnswer: false,
+    });
+
+    expect(withAnswerFlags.some((event) => event.type === "daily-goal")).toBe(
+      true,
+    );
+    expect(
+      withAnswerFlags.some((event) => event.type === "streak-incremented"),
+    ).toBe(true);
+    expect(
+      withoutAnswerFlags.some((event) => event.type === "daily-goal"),
+    ).toBe(false);
+    expect(
+      withoutAnswerFlags.some((event) => event.type === "streak-incremented"),
+    ).toBe(false);
+  });
+
+  it("emits mastery transitions and newly unlocked badges", () => {
+    const unit = contentIndex.units[0];
+    const subtopic = unit.subtopics[0];
+    const ids = getItemIdsForSubtopic(unit, subtopic.id);
+    const target = ids[0];
+    const almostMastered = Object.fromEntries(
+      ids.slice(1).map((id) => [id, makeItemProgress(id)]),
+    );
+    const mastered = {
+      ...almostMastered,
+      [target]: makeItemProgress(target),
+    };
+
+    const events = getCelebrationEventsForAnswer({
+      before: makeSnapshot({
+        itemProgress: almostMastered,
+        unlockedBadges: [],
+      }),
+      after: makeSnapshot({
+        itemProgress: mastered,
+        unlockedBadges: ["first-steps"],
+      }),
+      result: answer(target),
+      xpGained: 10,
+      dailyGoalCompletedByAnswer: false,
+      streakIncrementedByAnswer: false,
+    });
+
+    expect(events.some((event) => event.type === "subtopic-mastered")).toBe(
+      true,
+    );
+    expect(events.some((event) => event.type === "badge-unlocked")).toBe(true);
   });
 });
 

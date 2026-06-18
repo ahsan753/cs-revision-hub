@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useXpFloat } from "../../hooks/useXpFloat";
 import {
   getCodeTasksForScope,
   getDefaultDifficulty,
@@ -35,6 +36,7 @@ export function CodeLabPage() {
   const [index, setIndex] = useState(0);
   const [result, setResult] = useState<CodeLabResult | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
@@ -47,6 +49,7 @@ export function CodeLabPage() {
 
   const report = (correct: boolean, message: string) => {
     if (!task) return;
+    const difficulty = getDefaultDifficulty(task.difficulty);
     setResult({ correct, message });
     recordAnswer(
       {
@@ -55,8 +58,9 @@ export function CodeLabPage() {
         activity: "code",
         timestamp: Date.now(),
       },
-      getDefaultDifficulty(task.difficulty),
+      difficulty,
     );
+    if (correct) triggerXpFloat(10 * difficulty);
     recordDailyTaskCompletion(location.pathname);
   };
 

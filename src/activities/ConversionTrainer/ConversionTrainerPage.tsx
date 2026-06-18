@@ -8,6 +8,7 @@ import {
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useXpFloat } from "../../hooks/useXpFloat";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
 
@@ -52,6 +53,7 @@ export function ConversionTrainerPage() {
     message: string;
   } | null>(null);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
@@ -80,7 +82,7 @@ export function ConversionTrainerPage() {
     setResult(null);
   };
 
-  const check = () => {
+  const check = (anchorEl?: HTMLElement | null) => {
     const correct = problem.accept
       .map(normaliseText)
       .includes(normaliseText(answer));
@@ -99,6 +101,7 @@ export function ConversionTrainerPage() {
       },
       2,
     );
+    if (correct) triggerXpFloat(20, anchorEl);
     recordDailyTaskCompletion(location.pathname);
   };
 
@@ -170,7 +173,7 @@ export function ConversionTrainerPage() {
               variant={
                 result ? (result.correct ? "success" : "danger") : "primary"
               }
-              onClick={check}
+              onClick={(event) => check(event.currentTarget)}
               disabled={!answer.trim()}
             >
               {result ? (

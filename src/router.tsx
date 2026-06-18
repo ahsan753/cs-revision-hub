@@ -6,6 +6,7 @@ import { ConversionTrainerPage } from "./activities/ConversionTrainer/Conversion
 import { MatchGamePage } from "./activities/MatchGame/MatchGamePage";
 import { MemoryGamePage } from "./activities/MemoryGame/MemoryGamePage";
 import { QuizPage } from "./activities/Quiz/QuizPage";
+import { SmartSessionPage } from "./activities/SmartSession/SmartSessionPage";
 import { HomePage } from "./pages/HomePage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -26,6 +27,7 @@ export const router = createBrowserRouter(
         { path: "play/flashcards/:scope", element: <FlashcardsPage /> },
         { path: "play/match/:scope", element: <MatchGamePage /> },
         { path: "play/memory/:scope", element: <MemoryGamePage /> },
+        { path: "play/session", element: <SmartSessionPage /> },
         { path: "play/quiz/:scope", element: <QuizPage /> },
         { path: "play/code/:scope", element: <CodeLabPage /> },
         { path: "play/convert", element: <ConversionTrainerPage /> },

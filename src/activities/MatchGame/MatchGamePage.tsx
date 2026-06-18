@@ -1,7 +1,10 @@
+import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useXpFloat } from "../../hooks/useXpFloat";
+import { useReducedMotion } from "../../hooks/useReducedMotion";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
@@ -32,7 +35,9 @@ export function MatchGamePage() {
   const [moves, setMoves] = useState(0);
   const [feedback, setFeedback] = useState("");
   const wrongMatchTimer = useRef<number | null>(null);
+  const reducedMotion = useReducedMotion();
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
@@ -89,9 +94,10 @@ export function MatchGamePage() {
     setFeedback("");
   };
 
-  const chooseDefinition = (card: Flashcard) => {
+  const chooseDefinition = (card: Flashcard, anchorEl?: HTMLElement | null) => {
     if (!selectedTerm || wrongMatch || matched[card.id]) return;
     const correct = selectedTerm === card.id;
+    const difficulty = getDefaultDifficulty(card.difficulty);
     setMoves((value) => value + 1);
     recordAnswer(
       {
@@ -100,9 +106,10 @@ export function MatchGamePage() {
         activity: "match",
         timestamp: Date.now(),
       },
-      getDefaultDifficulty(card.difficulty),
+      difficulty,
     );
     if (correct) {
+      triggerXpFloat(10 * difficulty, anchorEl);
       setWrongMatch(null);
       const nextMatched = { ...matched, [card.id]: true };
       setMatched(nextMatched);
@@ -143,10 +150,19 @@ export function MatchGamePage() {
             {round.map((card) => {
               const isWrongMatch = wrongMatch?.termId === card.id;
               return (
-                <button
+                <motion.button
                   key={card.id}
                   disabled={matched[card.id] || Boolean(wrongMatch)}
                   onClick={() => setSelectedTerm(card.id)}
+                  animate={
+                    reducedMotion
+                      ? undefined
+                      : matched[card.id]
+                        ? { scale: [1, 1.035, 1] }
+                        : isWrongMatch
+                          ? { x: [0, -5, 5, -3, 3, 0] }
+                          : { x: 0, scale: 1 }
+                  }
                   className={`flex min-h-14 w-full items-center justify-between rounded-lg border p-4 text-left text-sm font-bold transition ${
                     matched[card.id]
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
@@ -159,7 +175,7 @@ export function MatchGamePage() {
                 >
                   {card.term}
                   {matched[card.id] ? <CheckCircle2 size={18} /> : null}
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -170,10 +186,21 @@ export function MatchGamePage() {
             {definitions.map((card) => {
               const isWrongMatch = wrongMatch?.definitionId === card.id;
               return (
-                <button
+                <motion.button
                   key={card.id}
                   disabled={matched[card.id] || Boolean(wrongMatch)}
-                  onClick={() => chooseDefinition(card)}
+                  onClick={(event) =>
+                    chooseDefinition(card, event.currentTarget)
+                  }
+                  animate={
+                    reducedMotion
+                      ? undefined
+                      : matched[card.id]
+                        ? { scale: [1, 1.035, 1] }
+                        : isWrongMatch
+                          ? { x: [0, -5, 5, -3, 3, 0] }
+                          : { x: 0, scale: 1 }
+                  }
                   className={`min-h-14 w-full rounded-lg border p-4 text-left text-sm leading-6 transition ${
                     matched[card.id]
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
@@ -183,7 +210,7 @@ export function MatchGamePage() {
                   }`}
                 >
                   {card.definition}
-                </button>
+                </motion.button>
               );
             })}
           </div>

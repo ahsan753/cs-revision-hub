@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useXpFloat } from "../../hooks/useXpFloat";
 import { ProgressRing } from "../../components/ui/ProgressRing";
 import {
   contentIndex,
@@ -42,7 +43,9 @@ export function QuizPage() {
     (state) => state.recordDailyTaskCompletion,
   );
   const progressRef = useRef(progress);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   progressRef.current = progress;
+  const { triggerXpFloat } = useXpFloat();
   const sourceItems = useMemo(
     () =>
       getMcqsForScope(scope).filter(
@@ -126,6 +129,7 @@ export function QuizPage() {
   const submit = () => {
     if (selected === null || answered) return;
     const correct = selected === correctIndex;
+    const difficulty = getDefaultDifficulty(current.difficulty);
     setAnswered(true);
     setAnsweredCount((value) => value + 1);
     if (correct) setCorrectCount((value) => value + 1);
@@ -149,8 +153,9 @@ export function QuizPage() {
         activity: "quiz",
         timestamp: Date.now(),
       },
-      getDefaultDifficulty(current.difficulty),
+      difficulty,
     );
+    if (correct) triggerXpFloat(10 * difficulty, cardRef.current);
   };
 
   const next = () => {
@@ -222,7 +227,10 @@ export function QuizPage() {
       </div>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
+        <div
+          ref={cardRef}
+          className="rounded-lg border border-line bg-white p-5 shadow-soft"
+        >
           <div className="mb-5 flex items-start gap-3">
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
               <HelpCircle size={26} />

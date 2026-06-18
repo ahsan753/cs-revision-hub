@@ -1,5 +1,6 @@
-import { Download, RotateCcw, Upload } from "lucide-react";
+import { Download, RotateCcw, Sparkles, Upload } from "lucide-react";
 import { useRef, useState } from "react";
+import { requestOnboardingReplay } from "../components/feedback/onboardingEvents";
 import { Button } from "../components/ui/Button";
 import { STORAGE_KEY } from "../store/storage";
 import type { ProgressSnapshot } from "../store/progressStore";
@@ -12,6 +13,7 @@ export function SettingsPage() {
   const resetProgress = useProgressStore((state) => state.resetProgress);
   const updateSettings = useProgressStore((state) => state.updateSettings);
   const setDailyGoal = useProgressStore((state) => state.setDailyGoal);
+  const setName = useProgressStore((state) => state.setName);
   const importProgress = useProgressStore((state) => state.importProgress);
 
   const exportProgress = () => {
@@ -62,7 +64,7 @@ export function SettingsPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           <Toggle
             label="Sound"
-            description="Reserve sound effects for later polish."
+            description="Play short cues for answers and achievements."
             checked={snapshot.settings.sound}
             onChange={(checked) => updateSettings({ sound: checked })}
           />
@@ -79,6 +81,20 @@ export function SettingsPage() {
             onChange={(checked) => updateSettings({ darkMode: checked })}
           />
         </div>
+
+        <label className="mt-5 block rounded-lg border border-line bg-slate-50 p-4">
+          <span className="block text-sm font-extrabold">Name</span>
+          <span className="mt-1 block text-xs leading-5 text-muted">
+            Used only for your greeting on this device.
+          </span>
+          <input
+            className="mt-3 min-h-11 w-full rounded-lg border border-line bg-white px-3 text-sm font-bold focus:border-primary"
+            value={snapshot.name ?? ""}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Optional"
+            autoComplete="given-name"
+          />
+        </label>
 
         <label className="mt-5 block rounded-lg border border-line bg-slate-50 p-4">
           <span className="flex items-center justify-between gap-4">
@@ -144,6 +160,15 @@ export function SettingsPage() {
           >
             <RotateCcw size={18} /> Reset progress
           </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              requestOnboardingReplay();
+              setMessage("Intro opened.");
+            }}
+          >
+            <Sparkles size={18} /> Replay intro
+          </Button>
         </div>
       </section>
     </div>
@@ -184,6 +209,7 @@ function toSnapshot(
 ): ProgressSnapshot {
   return {
     version: 1,
+    name: state.name,
     xp: state.xp,
     level: state.level,
     streak: state.streak,

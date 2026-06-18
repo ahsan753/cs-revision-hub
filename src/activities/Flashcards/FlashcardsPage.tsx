@@ -10,6 +10,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
+import { useXpFloat } from "../../hooks/useXpFloat";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
@@ -32,6 +33,7 @@ export function FlashcardsPage() {
   const [flipped, setFlipped] = useState(false);
   const [ratedIds, setRatedIds] = useState<Set<string>>(() => new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
@@ -93,10 +95,11 @@ export function FlashcardsPage() {
     setIndex((value) => (value + direction + cards.length) % cards.length);
   };
 
-  const rate = (correct: boolean) => {
+  const rate = (correct: boolean, anchorEl?: HTMLElement | null) => {
     const nextRatedIds = new Set(ratedIds);
     nextRatedIds.add(current.id);
     setRatedIds(nextRatedIds);
+    const difficulty = getDefaultDifficulty(current.difficulty);
     recordAnswer(
       {
         itemId: current.id,
@@ -104,8 +107,9 @@ export function FlashcardsPage() {
         activity: "flashcards",
         timestamp: Date.now(),
       },
-      getDefaultDifficulty(current.difficulty),
+      difficulty,
     );
+    if (correct) triggerXpFloat(10 * difficulty, anchorEl);
     if (nextRatedIds.size >= cards.length) {
       recordDailyTaskCompletion(location.pathname);
     }
@@ -193,7 +197,10 @@ export function FlashcardsPage() {
 
           {flipped ? (
             <div className="mt-6 grid gap-3 md:grid-cols-3">
-              <Button variant="success" onClick={() => rate(true)}>
+              <Button
+                variant="success"
+                onClick={(event) => rate(true, event.currentTarget)}
+              >
                 <CheckCircle2 size={20} /> Got it
               </Button>
               <Button variant="warning" onClick={() => rate(false)}>

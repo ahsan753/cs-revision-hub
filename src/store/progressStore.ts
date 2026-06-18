@@ -32,6 +32,7 @@ export interface ItemProgress {
 
 export interface ProgressSnapshot {
   version: 1;
+  name?: string;
   xp: number;
   level: number;
   streak: number;
@@ -53,17 +54,48 @@ export interface ProgressSnapshot {
   history: ActivityResult[];
 }
 
+export type CelebrationEvent =
+  | {
+      id: string;
+      type: "correct" | "incorrect";
+      itemId: string;
+      activity: ActivityType;
+      xpGained: number;
+    }
+  | { id: string; type: "level-up"; level: number }
+  | { id: string; type: "daily-goal" }
+  | { id: string; type: "streak-incremented"; streak: number }
+  | {
+      id: string;
+      type: "subtopic-mastered";
+      subtopicId: string;
+      title: string;
+    }
+  | { id: string; type: "unit-mastered"; unitId: string; title: string }
+  | {
+      id: string;
+      type: "badge-unlocked";
+      badgeId: string;
+      badgeName: string;
+      icon?: string;
+    };
+
 interface ProgressActions {
   recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => void;
   recordDailyTaskCompletion: (taskId: string) => void;
   refreshDailyProgress: () => void;
   setDailyGoal: (goal: number) => void;
+  setName: (name: string) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
   importProgress: (snapshot: unknown) => boolean;
   resetProgress: () => void;
+  consumeCelebrations: () => CelebrationEvent[];
 }
 
-export type ProgressState = ProgressSnapshot & ProgressActions;
+export type ProgressState = ProgressSnapshot &
+  ProgressActions & {
+    celebrations: CelebrationEvent[];
+  };
 
 const dayMs = 24 * 60 * 60 * 1000;
 const intervals: Record<number, number> = {
@@ -92,6 +124,7 @@ export function xpForLevel(level: number) {
 function freshProgress(): ProgressSnapshot {
   return {
     version: 1,
+    name: undefined,
     xp: 0,
     level: 1,
     streak: 0,
@@ -186,6 +219,22 @@ function normaliseSnapshot(
     };
   }
   return merged;
+}
+
+function toProgressSnapshot(state: ProgressState): ProgressSnapshot {
+  return {
+    version: 1,
+    name: state.name,
+    xp: state.xp,
+    level: state.level,
+    streak: state.streak,
+    dailyGoal: state.dailyGoal,
+    dailyProgress: state.dailyProgress,
+    unlockedBadges: state.unlockedBadges,
+    settings: state.settings,
+    itemProgress: state.itemProgress,
+    history: state.history,
+  };
 }
 
 function freshDailyProgress() {
@@ -383,22 +432,144 @@ function persist(snapshot: ProgressSnapshot) {
   return withBadges;
 }
 
-export const useProgressStore = create<ProgressState>((set) => {
+let celebrationCounter = 0;
+
+function eventId(type: CelebrationEvent["type"]) {
+  celebrationCounter += 1;
+  return `${type}-${Date.now()}-${celebrationCounter}`;
+}
+
+function getMasteryStates(progress: Record<string, ItemProgress>) {
+  const units = new Map<string, string>();
+  const subtopics = new Map<string, string>();
+
+  for (const unit of contentIndex.units) {
+    units.set(unit.id, getUnitMastery(unit, progress).state);
+    for (const subtopic of unit.subtopics) {
+      subtopics.set(
+        subtopic.id,
+        getSubtopicMastery(unit, subtopic.id, progress).state,
+      );
+    }
+  }
+
+  return { units, subtopics };
+}
+
+export function getCelebrationEventsForAnswer({
+  before,
+  after,
+  result,
+  xpGained,
+  dailyGoalCompletedByAnswer,
+  streakIncrementedByAnswer,
+}: {
+  before: ProgressSnapshot;
+  after: ProgressSnapshot;
+  result: ActivityResult;
+  xpGained: number;
+  dailyGoalCompletedByAnswer: boolean;
+  streakIncrementedByAnswer: boolean;
+}): CelebrationEvent[] {
+  const events: CelebrationEvent[] = [
+    {
+      id: eventId(result.correct ? "correct" : "incorrect"),
+      type: result.correct ? "correct" : "incorrect",
+      itemId: result.itemId,
+      activity: result.activity,
+      xpGained,
+    },
+  ];
+
+  if (levelFromXp(after.xp) > levelFromXp(before.xp)) {
+    events.push({
+      id: eventId("level-up"),
+      type: "level-up",
+      level: levelFromXp(after.xp),
+    });
+  }
+
+  if (dailyGoalCompletedByAnswer) {
+    events.push({ id: eventId("daily-goal"), type: "daily-goal" });
+  }
+
+  if (streakIncrementedByAnswer) {
+    events.push({
+      id: eventId("streak-incremented"),
+      type: "streak-incremented",
+      streak: after.streak,
+    });
+  }
+
+  const beforeMastery = getMasteryStates(before.itemProgress);
+  const afterMastery = getMasteryStates(after.itemProgress);
+
+  for (const unit of contentIndex.units) {
+    if (
+      beforeMastery.units.get(unit.id) !== "Mastered" &&
+      afterMastery.units.get(unit.id) === "Mastered"
+    ) {
+      events.push({
+        id: eventId("unit-mastered"),
+        type: "unit-mastered",
+        unitId: unit.id,
+        title: `Unit ${unit.number} ${unit.title}`,
+      });
+    }
+
+    for (const subtopic of unit.subtopics) {
+      if (
+        beforeMastery.subtopics.get(subtopic.id) !== "Mastered" &&
+        afterMastery.subtopics.get(subtopic.id) === "Mastered"
+      ) {
+        events.push({
+          id: eventId("subtopic-mastered"),
+          type: "subtopic-mastered",
+          subtopicId: subtopic.id,
+          title: `${subtopic.id} ${subtopic.title}`,
+        });
+      }
+    }
+  }
+
+  const previousBadges = new Set(before.unlockedBadges);
+  const badges = contentIndex.bank.badges ?? [];
+  for (const badgeId of after.unlockedBadges) {
+    if (previousBadges.has(badgeId)) continue;
+    const badge = badges.find((item) => item.id === badgeId);
+    events.push({
+      id: eventId("badge-unlocked"),
+      type: "badge-unlocked",
+      badgeId,
+      badgeName: badge?.name ?? badgeId,
+      icon: badge?.icon,
+    });
+  }
+
+  return events;
+}
+
+export const useProgressStore = create<ProgressState>((set, get) => {
   const initial = normaliseSnapshot(readProgress());
 
   return {
     ...initial,
+    celebrations: [],
     recordAnswer: (result, difficulty = 1) => {
       set((state) => {
+        const before = toProgressSnapshot(state);
         const daily = currentDailyProgress(state.dailyProgress);
         const gainedXp = result.correct ? 10 * difficulty : 2;
         const answered = daily.answered + 1;
         const xp = state.xp + gainedXp;
         const completedNow = isDailyGoalComplete(answered, state.dailyGoal);
-        const streak =
-          !daily.completed && completedNow ? state.streak + 1 : state.streak;
+        const dailyGoalCompletedByAnswer = !daily.completed && completedNow;
+        const streak = dailyGoalCompletedByAnswer
+          ? state.streak + 1
+          : state.streak;
         const snapshot: ProgressSnapshot = {
           version: 1,
+          name: state.name,
           xp,
           level: levelFromXp(xp),
           streak,
@@ -421,7 +592,19 @@ export const useProgressStore = create<ProgressState>((set) => {
           },
           history: [...state.history.slice(-199), result],
         };
-        return persist(snapshot);
+        const persisted = persist(snapshot);
+        const celebrations = getCelebrationEventsForAnswer({
+          before,
+          after: persisted,
+          result,
+          xpGained: gainedXp,
+          dailyGoalCompletedByAnswer,
+          streakIncrementedByAnswer: dailyGoalCompletedByAnswer,
+        });
+        return {
+          ...persisted,
+          celebrations: [...state.celebrations, ...celebrations],
+        };
       });
     },
     recordDailyTaskCompletion: (taskId) => {
@@ -429,16 +612,22 @@ export const useProgressStore = create<ProgressState>((set) => {
         const daily = currentDailyProgress(state.dailyProgress);
         if (daily.completedTasks.includes(taskId)) {
           if (daily === state.dailyProgress) return state;
-          return persist({ ...state, dailyProgress: daily });
+          return {
+            ...persist({ ...toProgressSnapshot(state), dailyProgress: daily }),
+            celebrations: state.celebrations,
+          };
         }
         const completedTasks = [...daily.completedTasks, taskId];
-        return persist({
-          ...state,
-          dailyProgress: {
-            ...daily,
-            completedTasks,
-          },
-        });
+        return {
+          ...persist({
+            ...toProgressSnapshot(state),
+            dailyProgress: {
+              ...daily,
+              completedTasks,
+            },
+          }),
+          celebrations: state.celebrations,
+        };
       });
     },
     refreshDailyProgress: () => {
@@ -450,7 +639,10 @@ export const useProgressStore = create<ProgressState>((set) => {
         ) {
           return state;
         }
-        return persist({ ...state, dailyProgress: daily });
+        return {
+          ...persist({ ...toProgressSnapshot(state), dailyProgress: daily }),
+          celebrations: state.celebrations,
+        };
       });
     },
     setDailyGoal: (goal) => {
@@ -458,32 +650,58 @@ export const useProgressStore = create<ProgressState>((set) => {
         const daily = currentDailyProgress(state.dailyProgress);
         const dailyGoal = Math.min(100, Math.max(5, Math.round(goal)));
         const completedNow = isDailyGoalComplete(daily.answered, dailyGoal);
-        return persist({
-          ...state,
-          streak:
-            !daily.completed && completedNow ? state.streak + 1 : state.streak,
-          dailyGoal,
-          dailyProgress: {
-            ...daily,
-            completed: daily.completed || completedNow,
-          },
-        });
+        return {
+          ...persist({
+            ...toProgressSnapshot(state),
+            streak:
+              !daily.completed && completedNow
+                ? state.streak + 1
+                : state.streak,
+            dailyGoal,
+            dailyProgress: {
+              ...daily,
+              completed: daily.completed || completedNow,
+            },
+          }),
+          celebrations: state.celebrations,
+        };
+      });
+    },
+    setName: (name) => {
+      set((state) => {
+        const trimmed = name.trim();
+        return {
+          ...persist({
+            ...toProgressSnapshot(state),
+            name: trimmed ? trimmed : undefined,
+          }),
+          celebrations: state.celebrations,
+        };
       });
     },
     updateSettings: (settings) => {
-      set((state) =>
-        persist({ ...state, settings: { ...state.settings, ...settings } }),
-      );
+      set((state) => ({
+        ...persist({
+          ...toProgressSnapshot(state),
+          settings: { ...state.settings, ...settings },
+        }),
+        celebrations: state.celebrations,
+      }));
     },
     importProgress: (snapshot) => {
       if (!isProgressSnapshot(snapshot)) return false;
       const normalised = normaliseSnapshot(snapshot);
-      set(persist(normalised));
+      set({ ...persist(normalised), celebrations: [] });
       return true;
     },
     resetProgress: () => {
       clearProgress();
-      set(freshProgress());
+      set({ ...freshProgress(), celebrations: [] });
+    },
+    consumeCelebrations: () => {
+      const events = get().celebrations;
+      if (events.length > 0) set({ celebrations: [] });
+      return events;
     },
   };
 });

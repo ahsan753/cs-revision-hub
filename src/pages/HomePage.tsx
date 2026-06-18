@@ -36,6 +36,7 @@ export function HomePage() {
   const level = useProgressStore((state) => state.level);
   const dailyGoal = useProgressStore((state) => state.dailyGoal);
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
+  const name = useProgressStore((state) => state.name);
   const currentLevelXp = xpForLevel(level);
   const nextLevelXp = xpForLevel(level + 1);
   const levelPercent = Math.round(
@@ -65,7 +66,7 @@ export function HomePage() {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold md:text-3xl">
-                Keep it up!
+                {name ? `Keep it up, ${name}!` : "Keep it up!"}
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
                 You are building mastery by practising, checking explanations,
@@ -172,10 +173,10 @@ export function HomePage() {
                 <BookOpen size={22} /> Continue practising
               </div>
               <p className="mt-2 text-sm text-indigo-100">
-                Pick up with a mixed quiz across your covered topics.
+                Review due items first, then top up with fresh practice.
               </p>
             </div>
-            <Link to="/play/quiz/mixed">
+            <Link to="/play/session">
               <Button className="w-full border border-white/25 bg-white/10 text-white hover:bg-white/20">
                 Continue practising <ArrowRight size={18} />
               </Button>
