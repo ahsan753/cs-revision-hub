@@ -55,6 +55,17 @@ export function ConversionTrainerPage() {
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
   );
+  const submittedState = result
+    ? result.correct
+      ? "correct"
+      : "incorrect"
+    : null;
+  const answerFieldClass =
+    submittedState === "correct"
+      ? "border-emerald-400 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-100 focus:border-emerald-500"
+      : submittedState === "incorrect"
+        ? "border-rose-400 bg-rose-50 text-rose-950 ring-2 ring-rose-100 focus:border-rose-500"
+        : "border-line focus:border-primary";
 
   const setModeAndProblem = (nextMode: Mode) => {
     setMode(nextMode);
@@ -143,16 +154,37 @@ export function ConversionTrainerPage() {
           <label className="block">
             <span className="text-sm font-bold text-muted">Your answer</span>
             <input
-              className="mt-2 min-h-12 w-full rounded-lg border border-line px-4 font-mono text-lg font-bold focus:border-primary"
+              className={`mt-2 min-h-12 w-full rounded-lg border px-4 font-mono text-lg font-bold transition ${answerFieldClass}`}
               value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
+              onChange={(event) => {
+                setAnswer(event.target.value);
+                setResult(null);
+              }}
               placeholder="Type your answer"
+              aria-invalid={submittedState === "incorrect" ? true : undefined}
             />
           </label>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <Button onClick={check} disabled={!answer.trim()}>
-              Check answer
+            <Button
+              variant={
+                result ? (result.correct ? "success" : "danger") : "primary"
+              }
+              onClick={check}
+              disabled={!answer.trim()}
+            >
+              {result ? (
+                result.correct ? (
+                  <CheckCircle2 className="animate-result-pop" size={18} />
+                ) : (
+                  <XCircle size={18} />
+                )
+              ) : null}
+              {result
+                ? result.correct
+                  ? "Correct"
+                  : "Try again"
+                : "Check answer"}
             </Button>
             <Button variant="ghost" onClick={nextProblem}>
               <RefreshCw size={17} /> New problem
@@ -160,7 +192,10 @@ export function ConversionTrainerPage() {
           </div>
         </div>
 
-        <aside className="rounded-lg border border-line bg-white shadow-soft">
+        <aside
+          className="rounded-lg border border-line bg-white shadow-soft"
+          aria-live="polite"
+        >
           <div
             className={`border-b border-line p-4 ${result ? (result.correct ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-700") : "bg-slate-50 text-muted"}`}
           >
