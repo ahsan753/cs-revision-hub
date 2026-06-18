@@ -99,6 +99,8 @@ export type ProgressState = ProgressSnapshot &
 
 const dayMs = 24 * 60 * 60 * 1000;
 export const maxNameLength = 30;
+const maxHistoryEntries = 500;
+const maxAttemptsPerItem = 500;
 const intervals: Record<number, number> = {
   1: 0,
   2: dayMs,
@@ -130,7 +132,7 @@ export function getXpForAnswer(
 ) {
   if (!result.correct || result.activity === "flashcards") return 0;
   if (
-    previous?.latestCorrect &&
+    previous &&
     previous.correctCount >= 2 &&
     previous.nextDue > timestamp
   ) {
@@ -192,16 +194,112 @@ export function isProgressSnapshot(value: unknown): value is ProgressSnapshot {
   return true;
 }
 
-function normaliseItemProgress(progress: Record<string, ItemProgress>) {
-  return Object.fromEntries(
-    Object.entries(progress).map(([id, item]) => [
-      id,
-      {
-        ...item,
-        correctAttempts: item.correctAttempts ?? Math.max(0, item.correctCount),
-      },
-    ]),
+function isActivityType(value: unknown): value is ActivityType {
+  return (
+    value === "flashcards" ||
+    value === "quiz" ||
+    value === "match" ||
+    value === "memory" ||
+    value === "code" ||
+    value === "convert"
   );
+}
+
+function boundedInteger(value: unknown, min: number, max: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.floor(value)));
+}
+
+function normaliseActivityResult(result: unknown): ActivityResult | null {
+  if (!isRecord(result)) return null;
+  if (
+    typeof result.itemId !== "string" ||
+    !contentIndex.allItemIds.includes(result.itemId) ||
+    typeof result.correct !== "boolean" ||
+    !isActivityType(result.activity)
+  ) {
+    return null;
+  }
+
+  return {
+    itemId: result.itemId,
+    correct: result.correct,
+    activity: result.activity,
+    timestamp: boundedInteger(result.timestamp, 0, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+function normaliseHistory(history: unknown) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .map(normaliseActivityResult)
+    .filter((item): item is ActivityResult => Boolean(item))
+    .slice(-maxHistoryEntries);
+}
+
+function normaliseItemProgress(progress: Record<string, unknown>) {
+  const knownIds = new Set(contentIndex.allItemIds);
+  const items: Record<string, ItemProgress> = {};
+
+  for (const [id, rawItem] of Object.entries(progress)) {
+    if (!knownIds.has(id) || !isRecord(rawItem)) continue;
+
+    const attempts = boundedInteger(rawItem.attempts, 0, maxAttemptsPerItem);
+    const correctCount = boundedInteger(rawItem.correctCount, 0, attempts);
+    const correctAttempts = boundedInteger(
+      rawItem.correctAttempts ?? correctCount,
+      0,
+      attempts,
+    );
+    const latestCorrect =
+      typeof rawItem.latestCorrect === "boolean"
+        ? rawItem.latestCorrect
+        : correctCount > 0;
+    const leitnerBox = boundedInteger(rawItem.leitnerBox, 1, 5);
+    const nextDue = boundedInteger(rawItem.nextDue, 0, Number.MAX_SAFE_INTEGER);
+    const lastActivity = isActivityType(rawItem.lastActivity)
+      ? rawItem.lastActivity
+      : "quiz";
+    const lastAttemptAt = boundedInteger(
+      rawItem.lastAttemptAt,
+      0,
+      Number.MAX_SAFE_INTEGER,
+    );
+
+    items[id] = {
+      itemId: id,
+      attempts,
+      correctCount,
+      correctAttempts,
+      latestCorrect,
+      leitnerBox,
+      nextDue,
+      lastActivity,
+      lastAttemptAt,
+    };
+  }
+
+  return items;
+}
+
+function getDifficultyByItemId() {
+  const difficulties = new Map<string, 1 | 2 | 3>();
+  for (const item of [
+    ...contentIndex.allFlashcards,
+    ...contentIndex.allMcqs,
+    ...contentIndex.allCodeTasks,
+  ]) {
+    difficulties.set(item.id, item.difficulty ?? 1);
+  }
+  return difficulties;
+}
+
+function getPlausibleXpCap(progress: Record<string, ItemProgress>) {
+  const difficulties = getDifficultyByItemId();
+  return Object.values(progress).reduce((total, item) => {
+    const difficulty = difficulties.get(item.itemId) ?? 1;
+    return total + item.correctAttempts * 10 * difficulty;
+  }, 0);
 }
 
 function normaliseSnapshot(
@@ -212,20 +310,39 @@ function normaliseSnapshot(
   const merged: ProgressSnapshot = {
     ...base,
     ...snapshot,
+    name:
+      typeof snapshot.name === "string"
+        ? snapshot.name.trim().slice(0, maxNameLength) || undefined
+        : undefined,
+    xp: boundedInteger(snapshot.xp, 0, Number.MAX_SAFE_INTEGER),
+    level: 1,
+    streak: boundedInteger(snapshot.streak, 0, 3650),
+    dailyGoal: boundedInteger(snapshot.dailyGoal, 5, 100),
     dailyProgress: {
       ...base.dailyProgress,
       ...snapshot.dailyProgress,
+      answered: boundedInteger(snapshot.dailyProgress?.answered, 0, 1000),
+      xp: boundedInteger(snapshot.dailyProgress?.xp, 0, Number.MAX_SAFE_INTEGER),
+      completed: Boolean(snapshot.dailyProgress?.completed),
+      completedTasks: Array.isArray(snapshot.dailyProgress?.completedTasks)
+        ? snapshot.dailyProgress.completedTasks.filter(
+            (task): task is string => typeof task === "string",
+          )
+        : [],
     },
     settings: {
-      ...base.settings,
-      ...snapshot.settings,
+      sound: Boolean(snapshot.settings?.sound),
+      reducedMotion: Boolean(snapshot.settings?.reducedMotion),
+      darkMode: Boolean(snapshot.settings?.darkMode),
     },
-    unlockedBadges: snapshot.unlockedBadges ?? [],
+    unlockedBadges: [],
     itemProgress: normaliseItemProgress(snapshot.itemProgress ?? {}),
-    history: snapshot.history ?? [],
+    history: normaliseHistory(snapshot.history),
   };
+  merged.xp = Math.min(merged.xp, getPlausibleXpCap(merged.itemProgress));
+  merged.level = levelFromXp(merged.xp);
   if (merged.dailyProgress.date !== todayKey()) {
-    return {
+    return withUnlockedBadges({
       ...merged,
       dailyProgress: {
         date: todayKey(),
@@ -234,9 +351,9 @@ function normaliseSnapshot(
         completed: false,
         completedTasks: [],
       },
-    };
+    });
   }
-  return merged;
+  return withUnlockedBadges(merged);
 }
 
 function toProgressSnapshot(state: ProgressState): ProgressSnapshot {
@@ -279,19 +396,34 @@ function nextItemProgress(
   result: ActivityResult,
 ): ItemProgress {
   const currentBox = previous?.leitnerBox ?? 1;
-  const leitnerBox = result.correct ? Math.min(5, currentBox + 1) : 1;
-  const nextDue = result.timestamp + intervals[leitnerBox];
+  const protectedPrematureMiss = Boolean(
+    !result.correct &&
+      previous &&
+      previous.correctCount >= 2 &&
+      previous.nextDue > result.timestamp,
+  );
+  const leitnerBox = result.correct
+    ? Math.min(5, currentBox + 1)
+    : protectedPrematureMiss
+      ? currentBox
+      : 1;
+  const nextDue = protectedPrematureMiss
+    ? (previous?.nextDue ?? result.timestamp)
+    : result.timestamp + intervals[leitnerBox];
   const correctAttempts =
     (previous?.correctAttempts ?? Math.max(0, previous?.correctCount ?? 0)) +
     (result.correct ? 1 : 0);
+  const previousCorrectCount = previous?.correctCount ?? 0;
 
   return {
     itemId: result.itemId,
     attempts: (previous?.attempts ?? 0) + 1,
     correctAttempts,
     correctCount: result.correct
-      ? (previous?.correctCount ?? 0) + 1
-      : Math.max(0, (previous?.correctCount ?? 0) - 1),
+      ? previousCorrectCount + 1
+      : protectedPrematureMiss
+        ? previousCorrectCount
+        : Math.max(0, previousCorrectCount - 1),
     latestCorrect: result.correct,
     leitnerBox,
     nextDue,
@@ -397,7 +529,7 @@ function hasMasteredPreviouslyMissedSubtopic(snapshot: ProgressSnapshot) {
 }
 
 function withUnlockedBadges(snapshot: ProgressSnapshot): ProgressSnapshot {
-  const unlocked = new Set(snapshot.unlockedBadges);
+  const unlocked = new Set<string>();
   const correctHistory = snapshot.history.filter((item) => item.correct);
   const pseudocodeParsonsIds = getPseudocodeParsonsIds();
 
@@ -615,7 +747,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
               result,
             ),
           },
-          history: [...state.history.slice(-199), result],
+          history: [...state.history.slice(-(maxHistoryEntries - 1)), result],
         };
         const persisted = persist(snapshot);
         const celebrations = getCelebrationEventsForAnswer({
@@ -675,18 +807,14 @@ export const useProgressStore = create<ProgressState>((set, get) => {
       set((state) => {
         const daily = currentDailyProgress(state.dailyProgress);
         const dailyGoal = Math.min(100, Math.max(5, Math.round(goal)));
-        const completedNow = isDailyGoalComplete(daily.answered, dailyGoal);
         return {
           ...persist({
             ...toProgressSnapshot(state),
-            streak:
-              !daily.completed && completedNow
-                ? state.streak + 1
-                : state.streak,
+            streak: state.streak,
             dailyGoal,
             dailyProgress: {
               ...daily,
-              completed: daily.completed || completedNow,
+              completed: daily.completed,
             },
           }),
           celebrations: state.celebrations,

@@ -121,6 +121,41 @@ describe("XP policy", () => {
     ).toBe(0);
   });
 
+  it("does not award XP when an already-mastered not-due item was deliberately missed first", () => {
+    const now = Date.now();
+    const masteredProgress = makeItemProgress("u1-mcq-1");
+    masteredProgress.nextDue = now + 60_000;
+
+    useProgressStore.setState({
+      ...useProgressStore.getState(),
+      xp: 100,
+      level: levelFromXp(100),
+      dailyProgress: {
+        date: useProgressStore.getState().dailyProgress.date,
+        answered: 0,
+        xp: 0,
+        completed: false,
+        completedTasks: [],
+      },
+      itemProgress: {
+        "u1-mcq-1": masteredProgress,
+      },
+      history: [],
+      celebrations: [],
+    });
+
+    useProgressStore
+      .getState()
+      .recordAnswer({ ...answer("u1-mcq-1", false), timestamp: now }, 1);
+    const gained = useProgressStore
+      .getState()
+      .recordAnswer({ ...answer("u1-mcq-1", true), timestamp: now + 1 }, 1);
+
+    expect(gained).toBe(0);
+    expect(useProgressStore.getState().xp).toBe(100);
+    useProgressStore.getState().resetProgress();
+  });
+
   it("awards XP for mastered items when they are due again", () => {
     const now = Date.now();
 
@@ -154,6 +189,61 @@ describe("progress import validation", () => {
     expect(isProgressSnapshot({ version: 1 })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), history: {} })).toBe(false);
     expect(isProgressSnapshot({ ...makeSnapshot(), version: 2 })).toBe(false);
+  });
+
+  it("caps imported XP to progress evidence and recomputes the level", () => {
+    const ok = useProgressStore.getState().importProgress(
+      makeSnapshot({
+        xp: 999_999,
+        level: 100,
+        itemProgress: {
+          "u1-mcq-1": makeItemProgress("u1-mcq-1"),
+        },
+      }),
+    );
+
+    expect(ok).toBe(true);
+    expect(useProgressStore.getState().xp).toBeLessThan(999_999);
+    expect(useProgressStore.getState().level).toBe(
+      levelFromXp(useProgressStore.getState().xp),
+    );
+    useProgressStore.getState().resetProgress();
+  });
+
+  it("does not preserve unearned imported badges", () => {
+    const ok = useProgressStore.getState().importProgress(
+      makeSnapshot({
+        unlockedBadges: ["perfect-week", "unit-crusher"],
+      }),
+    );
+
+    expect(ok).toBe(true);
+    expect(useProgressStore.getState().unlockedBadges).toEqual([]);
+    useProgressStore.getState().resetProgress();
+  });
+});
+
+describe("daily goal fairness", () => {
+  it("does not complete the day or increment the streak when a student lowers today's goal", () => {
+    useProgressStore.setState({
+      ...useProgressStore.getState(),
+      streak: 0,
+      dailyGoal: 20,
+      dailyProgress: {
+        date: useProgressStore.getState().dailyProgress.date,
+        answered: 6,
+        xp: 0,
+        completed: false,
+        completedTasks: [],
+      },
+      celebrations: [],
+    });
+
+    useProgressStore.getState().setDailyGoal(5);
+
+    expect(useProgressStore.getState().dailyProgress.completed).toBe(false);
+    expect(useProgressStore.getState().streak).toBe(0);
+    useProgressStore.getState().resetProgress();
   });
 });
 
