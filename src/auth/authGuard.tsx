@@ -23,3 +23,9 @@ export function RequireTeacher({
   if (profile?.role !== "teacher") return <Navigate to="/account" replace />;
   return children;
 }
+
+export function RedirectTeachers({ children }: { children: JSX.Element }) {
+  const { profile } = useAuth();
+  if (profile?.role === "teacher") return <Navigate to="/teacher" replace />;
+  return children;
+}

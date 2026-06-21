@@ -29,6 +29,12 @@ const baseNavItems = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
+const teacherNavItems = [
+  { to: "/teacher", label: "Teacher", icon: ShieldCheck },
+  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { to: "/settings", label: "Settings", icon: Settings },
+];
+
 export function AppShell() {
   const { xp, level, streak } = useProgressStore();
   const { user, profile, rankedProgress } = useAuth();
@@ -43,15 +49,10 @@ export function AppShell() {
   const displayedLevel = displayedProgress.level;
   const displayedStreak = displayedProgress.streak;
   const rank = getRankForLevel(displayedLevel);
-  const navItems =
-    profile?.role === "teacher"
-      ? [
-          ...baseNavItems,
-          { to: "/teacher", label: "Teacher", icon: ShieldCheck },
-        ]
-      : baseNavItems;
-  const mobileColumns =
-    profile?.role === "teacher" ? "grid-cols-5" : "grid-cols-4";
+  const isTeacher = profile?.role === "teacher";
+  const navItems = isTeacher ? teacherNavItems : baseNavItems;
+  const logoTarget = isTeacher ? "/teacher" : "/";
+  const mobileColumns = isTeacher ? "grid-cols-3" : "grid-cols-4";
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
@@ -75,7 +76,7 @@ export function AppShell() {
       <div className="min-h-screen pb-20 text-ink md:pb-0">
         <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 md:px-6">
-            <NavLink to="/" className="flex items-center gap-3">
+            <NavLink to={logoTarget} className="flex items-center gap-3">
               <span className="grid h-10 w-10 place-items-center rounded-lg bg-ink text-white">
                 <BookOpen size={21} />
               </span>
@@ -107,35 +108,45 @@ export function AppShell() {
             </nav>
 
             <div className="flex items-center gap-3 text-sm font-bold">
-              <span
-                className="hidden items-center gap-1 sm:inline-flex"
-                data-xp-counter
-              >
-                <Trophy className="text-amber-500" size={18} /> XP {displayedXp}
-              </span>
-              <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 text-ink">
-                <RankEmblem rank={rank} size="xs" />
-                <span className="whitespace-nowrap">
-                  Level {displayedLevel}
+              {isTeacher ? (
+                <span className="hidden items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-primary sm:inline-flex">
+                  <ShieldCheck size={18} />
+                  Teacher
                 </span>
-                <span className="hidden max-w-[9rem] truncate text-muted lg:inline">
-                  {rank.name}
-                </span>
-              </span>
-              <span className="hidden items-center gap-1 sm:inline-flex">
-                <motion.span
-                  animate={
-                    pulseStreak && !reducedMotion
-                      ? { scale: [1, 1.24, 1], rotate: [0, -7, 5, 0] }
-                      : { scale: 1, rotate: 0 }
-                  }
-                  transition={{ duration: 0.65 }}
-                  className="inline-flex"
-                >
-                  <Flame className="text-orange-500" size={18} />
-                </motion.span>{" "}
-                {displayedStreak} day streak
-              </span>
+              ) : (
+                <>
+                  <span
+                    className="hidden items-center gap-1 sm:inline-flex"
+                    data-xp-counter
+                  >
+                    <Trophy className="text-amber-500" size={18} /> XP{" "}
+                    {displayedXp}
+                  </span>
+                  <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 text-ink">
+                    <RankEmblem rank={rank} size="xs" />
+                    <span className="whitespace-nowrap">
+                      Level {displayedLevel}
+                    </span>
+                    <span className="hidden max-w-[9rem] truncate text-muted lg:inline">
+                      {rank.name}
+                    </span>
+                  </span>
+                  <span className="hidden items-center gap-1 sm:inline-flex">
+                    <motion.span
+                      animate={
+                        pulseStreak && !reducedMotion
+                          ? { scale: [1, 1.24, 1], rotate: [0, -7, 5, 0] }
+                          : { scale: 1, rotate: 0 }
+                      }
+                      transition={{ duration: 0.65 }}
+                      className="inline-flex"
+                    >
+                      <Flame className="text-orange-500" size={18} />
+                    </motion.span>{" "}
+                    {displayedStreak} day streak
+                  </span>
+                </>
+              )}
               <NavLink
                 to={user ? "/account" : "/login"}
                 className="grid h-10 w-10 place-items-center rounded-lg bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-primary"

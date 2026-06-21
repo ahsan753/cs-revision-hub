@@ -1,6 +1,10 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
-import { RequireAuth, RequireTeacher } from "./auth/authGuard";
+import {
+  RedirectTeachers,
+  RequireAuth,
+  RequireTeacher,
+} from "./auth/authGuard";
 import { FlashcardsPage } from "./activities/Flashcards/FlashcardsPage";
 import { CodeLabPage } from "./activities/CodeLab/CodeLabPage";
 import { ConversionTrainerPage } from "./activities/ConversionTrainer/ConversionTrainerPage";
@@ -26,7 +30,14 @@ export const router = createBrowserRouter(
       path: "/",
       element: <AppShell />,
       children: [
-        { index: true, element: <HomePage /> },
+        {
+          index: true,
+          element: (
+            <RedirectTeachers>
+              <HomePage />
+            </RedirectTeachers>
+          ),
+        },
         { path: "unit/:unitId", element: <UnitPage /> },
         { path: "unit/:unitId/:subtopicId", element: <SubtopicPage /> },
         { path: "play/flashcards/:scope", element: <FlashcardsPage /> },
@@ -36,7 +47,14 @@ export const router = createBrowserRouter(
         { path: "play/quiz/:scope", element: <QuizPage /> },
         { path: "play/code/:scope", element: <CodeLabPage /> },
         { path: "play/convert", element: <ConversionTrainerPage /> },
-        { path: "progress", element: <ProgressPage /> },
+        {
+          path: "progress",
+          element: (
+            <RedirectTeachers>
+              <ProgressPage />
+            </RedirectTeachers>
+          ),
+        },
         {
           path: "leaderboard",
           element: (
