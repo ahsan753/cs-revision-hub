@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "../ui/Button";
-import { maxNameLength, useProgressStore } from "../../store/progressStore";
 import { ONBOARDED_KEY, REPLAY_ONBOARDING_EVENT } from "./onboardingEvents";
 
 const cards = [
@@ -31,8 +30,6 @@ const cards = [
 export function Onboarding() {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const [draftName, setDraftName] = useState("");
-  const setName = useProgressStore((state) => state.setName);
   const current = cards[index];
 
   useEffect(() => {
@@ -41,7 +38,6 @@ export function Onboarding() {
 
     const replay = () => {
       setIndex(0);
-      setDraftName(useProgressStore.getState().name ?? "");
       setOpen(true);
     };
     window.addEventListener(REPLAY_ONBOARDING_EVENT, replay);
@@ -49,7 +45,6 @@ export function Onboarding() {
   }, []);
 
   const finish = () => {
-    if (draftName.trim()) setName(draftName);
     window.localStorage.setItem(ONBOARDED_KEY, "true");
     setOpen(false);
   };
@@ -83,22 +78,6 @@ export function Onboarding() {
             <p className="mt-3 text-sm leading-6 text-muted">{current.copy}</p>
           </div>
         </div>
-
-        {index === cards.length - 1 ? (
-          <label className="mt-5 block">
-            <span className="text-sm font-extrabold">
-              Your name, if you would like a personal greeting
-            </span>
-            <input
-              className="mt-2 min-h-12 w-full rounded-lg border border-line px-4 text-sm font-bold focus:border-primary"
-              value={draftName}
-              onChange={(event) => setDraftName(event.target.value)}
-              placeholder="Optional"
-              autoComplete="given-name"
-              maxLength={maxNameLength}
-            />
-          </label>
-        ) : null}
 
         <div className="mt-6 flex items-center justify-between gap-3">
           <Button variant="ghost" onClick={skip}>

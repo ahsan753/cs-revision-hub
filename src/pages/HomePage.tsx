@@ -29,7 +29,7 @@ import { useAuth } from "../auth/useAuth";
 import { chooseDisplayProgress } from "../components/layout/displayProgress";
 
 export function HomePage() {
-  const { rankedProgress } = useAuth();
+  const { profile, rankedProgress } = useAuth();
   const progress = useProgressStore((state) => state.itemProgress);
   const daily = useProgressStore((state) => state.dailyProgress);
   const refreshDailyProgress = useProgressStore(
@@ -40,7 +40,6 @@ export function HomePage() {
   const level = useProgressStore((state) => state.level);
   const dailyGoal = useProgressStore((state) => state.dailyGoal);
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
-  const name = useProgressStore((state) => state.name);
   const dailySuggestions = getDailySuggestions(progress);
   const completedDailyTaskIds = new Set(daily.completedTasks ?? []);
   const dailyAnswered = Math.min(dailyGoal, daily.answered);
@@ -54,6 +53,8 @@ export function HomePage() {
     local: { xp, level, streak },
     ranked: rankedProgress,
   });
+  const greetingName =
+    profile?.display_name?.trim() || profile?.full_name?.trim() || undefined;
 
   useEffect(() => {
     refreshDailyProgress();
@@ -69,7 +70,9 @@ export function HomePage() {
             </div>
             <div>
               <h1 className="text-2xl font-extrabold md:text-3xl">
-                {name ? `Keep it up, ${name}!` : "Keep it up!"}
+                {greetingName
+                  ? `Keep it up, ${greetingName}!`
+                  : "Keep it up!"}
               </h1>
               <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
                 You are building mastery by practising, checking explanations,

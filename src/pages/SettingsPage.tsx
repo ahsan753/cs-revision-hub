@@ -9,7 +9,6 @@ import type { ItemProgress, ProgressSnapshot } from "../store/progressStore";
 import {
   fixedDailyGoal,
   getItemAccuracyPercent,
-  maxNameLength,
   useProgressStore,
 } from "../store/progressStore";
 
@@ -19,7 +18,6 @@ export function SettingsPage() {
   const snapshot = useProgressStore();
   const resetProgress = useProgressStore((state) => state.resetProgress);
   const updateSettings = useProgressStore((state) => state.updateSettings);
-  const setName = useProgressStore((state) => state.setName);
   const importProgress = useProgressStore((state) => state.importProgress);
 
   const exportProgressPdf = () => {
@@ -96,21 +94,6 @@ export function SettingsPage() {
             onChange={(checked) => updateSettings({ darkMode: checked })}
           />
         </div>
-
-        <label className="mt-5 block rounded-lg border border-line bg-slate-50 p-4">
-          <span className="block text-sm font-extrabold">Name</span>
-          <span className="mt-1 block text-xs leading-5 text-muted">
-            Used only for your greeting on this device.
-          </span>
-          <input
-            className="mt-3 min-h-11 w-full rounded-lg border border-line bg-white px-3 text-sm font-bold focus:border-primary"
-            value={snapshot.name ?? ""}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Optional"
-            autoComplete="given-name"
-            maxLength={maxNameLength}
-          />
-        </label>
 
         <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
           <span className="flex items-center justify-between gap-4">
