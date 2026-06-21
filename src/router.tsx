@@ -15,7 +15,7 @@ import { LoginPage, SignupPage } from "./pages/LoginPage";
 import { ProgressPage } from "./pages/ProgressPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { SubtopicPage } from "./pages/SubtopicPage";
-import { TeacherPage } from "./pages/TeacherPage";
+import { TeacherClassPage, TeacherPage } from "./pages/TeacherPage";
 import { UnitPage } from "./pages/UnitPage";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "") || "/";
@@ -60,6 +60,14 @@ export const router = createBrowserRouter(
           element: (
             <RequireTeacher>
               <TeacherPage />
+            </RequireTeacher>
+          ),
+        },
+        {
+          path: "teacher/classes/:classId",
+          element: (
+            <RequireTeacher>
+              <TeacherClassPage />
             </RequireTeacher>
           ),
         },

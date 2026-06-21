@@ -6,6 +6,14 @@ export interface TeacherClass {
   year_group: string;
 }
 
+export interface TeacherClassSummary extends TeacherClass {
+  student_count: number;
+  average_xp: number;
+  total_xp: number;
+  active_this_week: number;
+  latest_activity_at: string | null;
+}
+
 export interface RosterRow {
   student_id: string;
   username: string | null;
@@ -14,6 +22,35 @@ export interface RosterRow {
   class_id: string;
   class_name: string;
   xp: number;
+}
+
+export interface TeacherClassRosterRow extends RosterRow {
+  level: number;
+  streak: number;
+  best_streak: number;
+  total_answered: number;
+  last_answer_at: string | null;
+}
+
+export interface TeacherClassActivityRow {
+  event_id: string;
+  student_id: string;
+  student_name: string;
+  item_id: string;
+  activity: string;
+  content_kind: string;
+  correct: boolean;
+  xp_awarded: number;
+  created_at: string;
+}
+
+export interface TeacherClassWeakAreaRow {
+  item_id: string;
+  attempts: number;
+  correct_attempts: number;
+  miss_count: number;
+  affected_students: number;
+  last_attempt_at: string | null;
 }
 
 export interface CreatedStudentAccount {
@@ -47,11 +84,46 @@ export async function getTeacherClasses() {
   return data ?? [];
 }
 
+export async function getTeacherClassSummaries() {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_teacher_class_summaries");
+  if (error) throw error;
+  return (data ?? []) as TeacherClassSummary[];
+}
+
 export async function getClassRoster() {
   const client = requireSupabase();
   const { data, error } = await client.rpc("get_teacher_student_accounts");
   if (error) throw error;
   return (data ?? []) as RosterRow[];
+}
+
+export async function getTeacherClassRoster(classId: string) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_teacher_class_roster", {
+    p_class_id: classId,
+  });
+  if (error) throw error;
+  return (data ?? []) as TeacherClassRosterRow[];
+}
+
+export async function getTeacherClassActivity(classId: string, limit = 20) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_teacher_class_activity", {
+    p_class_id: classId,
+    p_limit: limit,
+  });
+  if (error) throw error;
+  return (data ?? []) as TeacherClassActivityRow[];
+}
+
+export async function getTeacherClassWeakAreas(classId: string) {
+  const client = requireSupabase();
+  const { data, error } = await client.rpc("get_teacher_class_weak_areas", {
+    p_class_id: classId,
+  });
+  if (error) throw error;
+  return (data ?? []) as TeacherClassWeakAreaRow[];
 }
 
 export async function createManagedStudentAccount({
@@ -82,10 +154,16 @@ export async function createManagedStudentAccount({
 
 export async function updateManagedStudentAccount({
   studentId,
+  fullName,
+  displayName,
+  classId,
   username,
   password,
 }: {
   studentId: string;
+  fullName?: string;
+  displayName?: string | null;
+  classId?: string;
   username?: string;
   password?: string;
 }) {
@@ -94,6 +172,9 @@ export async function updateManagedStudentAccount({
     body: {
       action: "update",
       student_id: studentId,
+      full_name: fullName,
+      display_name: displayName,
+      class_id: classId,
       username,
       password,
     },
