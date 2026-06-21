@@ -24,6 +24,7 @@ export interface CreatedStudentAccount {
   class_name: string;
   username: string;
   password: string;
+  display_name: string;
 }
 
 export async function createClass(name: string, yearGroup: string) {

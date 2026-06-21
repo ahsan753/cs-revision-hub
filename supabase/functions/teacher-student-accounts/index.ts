@@ -80,6 +80,12 @@ async function createStudentAccount(
     admin,
     `${slugName(firstName)}.${slugName(lastName)}`,
   );
+  const displayName = await nextAvailableDisplayName(
+    admin,
+    studentClass.id,
+    firstName,
+    lastName,
+  );
   const password = generatePassword();
   const email = `${username}@${studentAuthDomain}`;
 
@@ -103,7 +109,7 @@ async function createStudentAccount(
       year_group: studentClass.year_group,
       role: "student",
       login_username: username,
-      display_name: null,
+      display_name: displayName,
     })
     .eq("id", data.user.id);
 
@@ -119,6 +125,7 @@ async function createStudentAccount(
     class_name: studentClass.name,
     username,
     password,
+    display_name: displayName,
   };
 }
 
@@ -224,6 +231,32 @@ async function nextAvailableUsername(
   return `${base}${crypto.randomUUID().slice(0, 8)}`;
 }
 
+async function nextAvailableDisplayName(
+  admin: ReturnType<typeof adminClient>,
+  classId: string,
+  firstName: string,
+  lastName: string,
+) {
+  const base = cleanName(firstName);
+  const lastInitial = cleanName(lastName).charAt(0).toUpperCase();
+  const candidates = lastInitial ? [base, `${base} ${lastInitial}`] : [base];
+
+  for (const candidate of candidates) {
+    if (await isDisplayNameAvailable(admin, classId, candidate)) {
+      return candidate;
+    }
+  }
+
+  for (let index = 2; index < 100; index += 1) {
+    const candidate = `${base} ${index}`;
+    if (await isDisplayNameAvailable(admin, classId, candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${base} ${crypto.randomUUID().slice(0, 4)}`;
+}
+
 async function assertUsernameAvailable(
   admin: ReturnType<typeof adminClient>,
   username: string,
@@ -247,6 +280,21 @@ async function isUsernameAvailable(
     .from("profiles")
     .select("id")
     .ilike("login_username", username)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length === 0;
+}
+
+async function isDisplayNameAvailable(
+  admin: ReturnType<typeof adminClient>,
+  classId: string,
+  displayName: string,
+) {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("class_id", classId)
+    .ilike("display_name", displayName)
     .limit(1);
   if (error) throw error;
   return (data ?? []).length === 0;

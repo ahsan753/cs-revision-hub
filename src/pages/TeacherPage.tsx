@@ -172,6 +172,9 @@ export function TeacherPage() {
             <p className="text-sm font-extrabold text-emerald-800">
               Login created for {latestAccount.full_name}
             </p>
+            <p className="mt-1 text-xs font-bold text-emerald-700">
+              Display name set to {latestAccount.display_name}
+            </p>
             <div className="mt-3 grid gap-2 text-sm font-bold md:grid-cols-[1fr_1fr_auto] md:items-center">
               <p className="font-mono text-emerald-900">
                 {studentLoginId(latestAccount.username)}
