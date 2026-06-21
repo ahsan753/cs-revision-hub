@@ -1,6 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { type ReactNode, useCallback, useMemo, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useReducedMotion } from "../../hooks/useReducedMotion";
+import { rankedXpAwardedEvent } from "../../ranked/rankedClient";
 import { XpFloatContext } from "./xpFloatContext";
 
 interface FloatItem {
@@ -21,11 +28,14 @@ export function XpFloatProvider({ children }: { children: ReactNode }) {
       const fallback = document.querySelector<HTMLElement>("[data-xp-counter]");
       const target = anchorEl ?? fallback;
       const rect = target?.getBoundingClientRect();
+      const hasVisibleRect = Boolean(rect && rect.width > 0 && rect.height > 0);
       const item = {
         id: Date.now() + Math.random(),
         amount,
-        x: rect ? rect.left + rect.width / 2 : window.innerWidth - 120,
-        y: rect ? rect.top + rect.height / 2 : 76,
+        x: hasVisibleRect
+          ? rect!.left + rect!.width / 2
+          : window.innerWidth - 96,
+        y: hasVisibleRect ? rect!.top + rect!.height / 2 : 76,
       };
       setFloats((value) => [...value, item]);
       window.setTimeout(() => {
@@ -34,6 +44,15 @@ export function XpFloatProvider({ children }: { children: ReactNode }) {
     },
     [reducedMotion],
   );
+
+  useEffect(() => {
+    const showRankedXp = (event: Event) => {
+      const amount = (event as CustomEvent<{ amount?: number }>).detail?.amount;
+      if (typeof amount === "number") triggerXpFloat(amount);
+    };
+    window.addEventListener(rankedXpAwardedEvent, showRankedXp);
+    return () => window.removeEventListener(rankedXpAwardedEvent, showRankedXp);
+  }, [triggerXpFloat]);
 
   const value = useMemo(() => ({ triggerXpFloat }), [triggerXpFloat]);
 

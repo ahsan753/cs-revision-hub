@@ -15,6 +15,7 @@ export interface RankedAnswerResponse {
 }
 
 export const rankedProgressEvent = "csrh:ranked-progress";
+export const rankedXpAwardedEvent = "csrh:ranked-xp-awarded";
 
 export async function recordRankedAnswer({
   rankedItemId,
@@ -57,6 +58,13 @@ export async function recordRankedAnswer({
     window.dispatchEvent(
       new CustomEvent(rankedProgressEvent, { detail: data.totals }),
     );
+    if (data.xp_awarded > 0) {
+      window.dispatchEvent(
+        new CustomEvent(rankedXpAwardedEvent, {
+          detail: { amount: data.xp_awarded },
+        }),
+      );
+    }
   }
   return data ?? null;
 }
