@@ -83,8 +83,8 @@ describe("level helpers", () => {
 });
 
 describe("XP policy", () => {
-  it("awards difficulty-scaled XP for correct non-flashcard answers", () => {
-    expect(getXpForAnswer({ activity: "quiz", correct: true }, 3)).toBe(30);
+  it("awards no local XP for correct non-flashcard answers", () => {
+    expect(getXpForAnswer({ activity: "quiz", correct: true }, 3)).toBe(0);
   });
 
   it("awards no XP for flashcard answers even when correct", () => {
@@ -98,14 +98,14 @@ describe("XP policy", () => {
     expect(getXpForAnswer({ activity: "quiz", correct: false }, 1)).toBe(0);
   });
 
-  it("still awards XP for the second correct attempt needed to master an item", () => {
+  it("awards no local XP for the second correct attempt needed to master an item", () => {
     expect(
       getXpForAnswer({ activity: "code", correct: true }, 2, {
         correctCount: 1,
         latestCorrect: true,
         nextDue: Date.now() + 60_000,
       }),
-    ).toBe(20);
+    ).toBe(0);
   });
 
   it("does not award XP for immediate repeats of already-mastered items", () => {
@@ -154,11 +154,11 @@ describe("XP policy", () => {
       .recordAnswer({ ...answer("u1-mcq-1", true), timestamp: now + 1 }, 1);
 
     expect(gained).toBe(0);
-    expect(useProgressStore.getState().xp).toBe(100);
+    expect(useProgressStore.getState().xp).toBe(0);
     useProgressStore.getState().resetProgress();
   });
 
-  it("awards XP for mastered items when they are due again", () => {
+  it("awards no local XP for mastered items when they are due again", () => {
     const now = Date.now();
 
     expect(
@@ -172,7 +172,7 @@ describe("XP policy", () => {
         },
         now,
       ),
-    ).toBe(10);
+    ).toBe(0);
   });
 });
 
@@ -193,7 +193,7 @@ describe("progress import validation", () => {
     expect(isProgressSnapshot({ ...makeSnapshot(), version: 2 })).toBe(false);
   });
 
-  it("caps imported XP to progress evidence and recomputes the level", () => {
+  it("does not preserve imported local XP", () => {
     const ok = useProgressStore.getState().importProgress(
       makeSnapshot({
         xp: 999_999,
@@ -205,10 +205,8 @@ describe("progress import validation", () => {
     );
 
     expect(ok).toBe(true);
-    expect(useProgressStore.getState().xp).toBeLessThan(999_999);
-    expect(useProgressStore.getState().level).toBe(
-      levelFromXp(useProgressStore.getState().xp),
-    );
+    expect(useProgressStore.getState().xp).toBe(0);
+    expect(useProgressStore.getState().level).toBe(1);
     useProgressStore.getState().resetProgress();
   });
 

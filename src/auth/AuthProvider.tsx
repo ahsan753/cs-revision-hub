@@ -13,7 +13,11 @@ import {
 } from "../ranked/rankedClient";
 import type { RankedProgressTotals } from "../ranked/rankedTypes";
 import { useProgressStore } from "../store/progressStore";
-import { AuthContext, type AuthContextValue, type Profile } from "./authContext";
+import {
+  AuthContext,
+  type AuthContextValue,
+  type Profile,
+} from "./authContext";
 import { getAuthRedirectTo } from "./authRedirect";
 import { isAllowedStudentEmail, nameFromEmail } from "./nameFromEmail";
 import { normaliseLoginIdentifier } from "./studentCredentials";
@@ -152,15 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       refreshProfile,
       refreshRankedProgress,
-      joinClass: async (joinCode) => {
-        const client = requireSupabase();
-        const { data, error } = await client.rpc("join_class", {
-          p_join_code: joinCode,
-        });
-        if (error) throw error;
-        await refreshProfile();
-        return String(data ?? "");
-      },
       updateLeaderboardOptIn: async (optIn) => {
         const client = requireSupabase();
         const { error } = await client

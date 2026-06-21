@@ -1,16 +1,8 @@
-import {
-  Download,
-  FileText,
-  KeyRound,
-  RotateCcw,
-  Sparkles,
-  Upload,
-} from "lucide-react";
-import { type FormEvent, useRef, useState } from "react";
+import { Download, FileText, RotateCcw, Sparkles, Upload } from "lucide-react";
+import { useRef, useState } from "react";
 import { requestOnboardingReplay } from "../components/feedback/onboardingEvents";
 import { Button } from "../components/ui/Button";
 import { contentIndex } from "../content/contentIndex";
-import { useAuth } from "../auth/useAuth";
 import { getUnitMastery } from "../store/mastery";
 import { STORAGE_KEY } from "../store/storage";
 import type { ItemProgress, ProgressSnapshot } from "../store/progressStore";
@@ -24,33 +16,11 @@ import {
 export function SettingsPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
-  const [joinCode, setJoinCode] = useState("");
-  const [joiningClass, setJoiningClass] = useState(false);
   const snapshot = useProgressStore();
-  const { configured, profile, isVerified, joinClass } = useAuth();
   const resetProgress = useProgressStore((state) => state.resetProgress);
   const updateSettings = useProgressStore((state) => state.updateSettings);
   const setName = useProgressStore((state) => state.setName);
   const importProgress = useProgressStore((state) => state.importProgress);
-  const canJoinClass = configured && isVerified && profile?.role === "student";
-
-  const join = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!canJoinClass) return;
-    setJoiningClass(true);
-    setMessage("");
-    try {
-      const className = await joinClass(joinCode);
-      setJoinCode("");
-      setMessage(className ? `Joined ${className}.` : "Class joined.");
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not join class.",
-      );
-    } finally {
-      setJoiningClass(false);
-    }
-  };
 
   const exportProgressPdf = () => {
     const data = toSnapshot(snapshot);
@@ -108,43 +78,6 @@ export function SettingsPage() {
         <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm font-bold text-primary">
           {message}
         </div>
-      ) : null}
-
-      {canJoinClass ? (
-        <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <h2 className="inline-flex items-center gap-2 text-lg font-extrabold">
-                <KeyRound size={19} /> Class code
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                {profile?.class_id
-                  ? "You are already joined to a class. Enter a new teacher code only if your teacher asks you to move classes."
-                  : "Enter the code from your teacher to join your class."}
-              </p>
-            </div>
-            <span className="w-fit rounded-lg bg-slate-50 px-3 py-2 text-xs font-extrabold uppercase text-muted">
-              {profile?.class_id ? "Class joined" : "Not joined"}
-            </span>
-          </div>
-          <form
-            className="mt-4 flex flex-col gap-3 sm:flex-row"
-            onSubmit={join}
-          >
-            <input
-              className="min-h-11 flex-1 rounded-lg border border-line bg-white px-3 text-sm font-bold uppercase outline-none focus:border-primary"
-              value={joinCode}
-              onChange={(event) =>
-                setJoinCode(event.target.value.toUpperCase())
-              }
-              placeholder="CS-7QK2"
-              autoComplete="off"
-            />
-            <Button disabled={joiningClass || !joinCode.trim()}>
-              Join class
-            </Button>
-          </form>
-        </section>
       ) : null}
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">

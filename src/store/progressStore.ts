@@ -137,16 +137,16 @@ export function xpForLevel(level: number) {
 }
 
 export function getXpForAnswer(
-  result: Pick<ActivityResult, "activity" | "correct">,
-  difficulty: 1 | 2 | 3 = 1,
-  previous?: Pick<ItemProgress, "correctCount" | "latestCorrect" | "nextDue">,
-  timestamp = Date.now(),
+  _result: Pick<ActivityResult, "activity" | "correct">,
+  _difficulty?: 1 | 2 | 3,
+  _previous?: Pick<ItemProgress, "correctCount" | "latestCorrect" | "nextDue">,
+  _timestamp?: number,
 ) {
-  if (!result.correct || result.activity === "flashcards") return 0;
-  if (previous && previous.correctCount >= 2 && previous.nextDue > timestamp) {
-    return 0;
-  }
-  return 10 * difficulty;
+  void _result;
+  void _difficulty;
+  void _previous;
+  void _timestamp;
+  return 0;
 }
 
 function freshProgress(): ProgressSnapshot {
@@ -304,26 +304,6 @@ function normaliseTimedActivityBests(value: unknown) {
   return bests;
 }
 
-function getDifficultyByItemId() {
-  const difficulties = new Map<string, 1 | 2 | 3>();
-  for (const item of [
-    ...contentIndex.allFlashcards,
-    ...contentIndex.allMcqs,
-    ...contentIndex.allCodeTasks,
-  ]) {
-    difficulties.set(item.id, item.difficulty ?? 1);
-  }
-  return difficulties;
-}
-
-function getPlausibleXpCap(progress: Record<string, ItemProgress>) {
-  const difficulties = getDifficultyByItemId();
-  return Object.values(progress).reduce((total, item) => {
-    const difficulty = difficulties.get(item.itemId) ?? 1;
-    return total + item.correctAttempts * 10 * difficulty;
-  }, 0);
-}
-
 function normaliseSnapshot(
   snapshot: ProgressSnapshot | null,
 ): ProgressSnapshot {
@@ -336,7 +316,7 @@ function normaliseSnapshot(
       typeof snapshot.name === "string"
         ? snapshot.name.trim().slice(0, maxNameLength) || undefined
         : undefined,
-    xp: boundedInteger(snapshot.xp, 0, Number.MAX_SAFE_INTEGER),
+    xp: 0,
     level: 1,
     streak: boundedInteger(snapshot.streak, 0, 3650),
     dailyGoal: fixedDailyGoal,
@@ -344,11 +324,7 @@ function normaliseSnapshot(
       ...base.dailyProgress,
       ...snapshot.dailyProgress,
       answered: boundedInteger(snapshot.dailyProgress?.answered, 0, 1000),
-      xp: boundedInteger(
-        snapshot.dailyProgress?.xp,
-        0,
-        Number.MAX_SAFE_INTEGER,
-      ),
+      xp: 0,
       completed: Boolean(snapshot.dailyProgress?.completed),
       completedTasks: Array.isArray(snapshot.dailyProgress?.completedTasks)
         ? snapshot.dailyProgress.completedTasks.filter(
@@ -368,8 +344,7 @@ function normaliseSnapshot(
     itemProgress: normaliseItemProgress(snapshot.itemProgress ?? {}),
     history: normaliseHistory(snapshot.history),
   };
-  merged.xp = Math.min(merged.xp, getPlausibleXpCap(merged.itemProgress));
-  merged.level = levelFromXp(merged.xp);
+  merged.level = 1;
   if (merged.dailyProgress.date !== todayKey()) {
     return withUnlockedBadges({
       ...merged,
@@ -755,7 +730,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
         );
         awardedXp = gainedXp;
         const answered = daily.answered + 1;
-        const xp = state.xp + gainedXp;
+        const xp = 0;
         const completedNow = isDailyGoalComplete(answered, fixedDailyGoal);
         const dailyGoalCompletedByAnswer = !daily.completed && completedNow;
         const streak = dailyGoalCompletedByAnswer
@@ -765,13 +740,13 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           version: 1,
           name: state.name,
           xp,
-          level: levelFromXp(xp),
+          level: 1,
           streak,
           dailyGoal: fixedDailyGoal,
           dailyProgress: {
             date: daily.date,
             answered,
-            xp: daily.xp + gainedXp,
+            xp: 0,
             completed: daily.completed || completedNow,
             completedTasks: daily.completedTasks,
           },

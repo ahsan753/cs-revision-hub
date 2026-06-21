@@ -8,7 +8,7 @@ export function chooseDisplayProgress({
   local: { xp: number; level: number; streak: number };
   ranked: RankedProgressTotals | null;
 }) {
-  const selected = !ranked || local.xp >= ranked.xp ? local : ranked;
+  const selected = ranked ?? local;
 
   return {
     xp: selected.xp,

@@ -292,11 +292,7 @@ function SmartMcq({
             <Button
               disabled={selected === null}
               onClick={(event) =>
-                onAnswer(
-                  isCorrect,
-                  event.currentTarget,
-                  selected ?? undefined,
-                )
+                onAnswer(isCorrect, event.currentTarget, selected ?? undefined)
               }
             >
               Check answer
@@ -407,7 +403,6 @@ function Results({
   onRestart: () => void;
 }) {
   const correct = answers.filter((answer) => answer.correct).length;
-  const xp = answers.reduce((total, answer) => total + answer.xpGained, 0);
   const percent = Math.round((correct / Math.max(1, answers.length)) * 100);
 
   return (
@@ -415,7 +410,8 @@ function Results({
       <ProgressRing value={percent} size={96} color="#22c55e" />
       <h1 className="mt-5 text-3xl font-extrabold">Smart session complete</h1>
       <p className="mt-2 text-muted">
-        You scored {correct} / {answers.length} and earned {xp} XP.
+        You scored {correct} / {answers.length}. XP is recorded only for
+        server-verified online answers.
       </p>
       <div className="mt-5 grid gap-3 text-sm font-bold md:grid-cols-3">
         <span className="rounded-lg bg-indigo-50 p-3 text-primary">

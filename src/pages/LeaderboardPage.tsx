@@ -96,7 +96,8 @@ export function LeaderboardPage() {
         <Notice>Verify your email before using ranked leaderboards.</Notice>
       ) : !profile?.class_id ? (
         <Notice>
-          Join a class from Settings to unlock class and year boards.
+          Your teacher needs to assign this login to a class before class and
+          global leaderboards appear.
         </Notice>
       ) : null}
 

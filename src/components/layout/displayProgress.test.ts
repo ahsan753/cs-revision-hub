@@ -18,13 +18,13 @@ function rankedProgress(
 }
 
 describe("chooseDisplayProgress", () => {
-  it("does not let zero ranked progress hide local practice progress", () => {
+  it("uses zero ranked progress instead of local practice progress", () => {
     expect(
       chooseDisplayProgress({
         local: { xp: 160, level: 2, streak: 1 },
         ranked: rankedProgress({}),
       }),
-    ).toEqual({ xp: 160, level: 2, streak: 1 });
+    ).toEqual({ xp: 0, level: 1, streak: 0 });
   });
 
   it("uses ranked progress when it is ahead of local progress", () => {
@@ -42,11 +42,11 @@ describe("chooseDisplayProgress", () => {
     ).toEqual({ xp: 120, level: 2, streak: 4 });
   });
 
-  it("derives the displayed level from the displayed XP", () => {
+  it("falls back to local progress only when server progress is unavailable", () => {
     expect(
       chooseDisplayProgress({
         local: { xp: 160, level: 1, streak: 1 },
-        ranked: rankedProgress({ xp: 0, level: 1 }),
+        ranked: null,
       }),
     ).toEqual({ xp: 160, level: 2, streak: 1 });
   });

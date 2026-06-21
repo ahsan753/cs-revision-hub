@@ -39,7 +39,9 @@ export function TeacherPage() {
       setRoster(rosterRows);
       setStudentClassId((current) => current || classRows[0]?.id || "");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not load teacher data.");
+      setMessage(
+        error instanceof Error ? error.message : "Could not load teacher data.",
+      );
     }
   };
 
@@ -56,7 +58,9 @@ export function TeacherPage() {
       setName("");
       await refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not create class.");
+      setMessage(
+        error instanceof Error ? error.message : "Could not create class.",
+      );
     } finally {
       setBusy(false);
     }
@@ -79,7 +83,9 @@ export function TeacherPage() {
       await refresh();
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Could not create student login.",
+        error instanceof Error
+          ? error.message
+          : "Could not create student login.",
       );
     } finally {
       setStudentBusy(false);
@@ -103,7 +109,10 @@ export function TeacherPage() {
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-extrabold">Create class</h2>
-        <form className="mt-4 grid gap-3 md:grid-cols-[1fr_180px_auto]" onSubmit={submit}>
+        <form
+          className="mt-4 grid gap-3 md:grid-cols-[1fr_180px_auto]"
+          onSubmit={submit}
+        >
           <input
             className="min-h-11 rounded-lg border border-line px-3 text-sm font-bold outline-none focus:border-primary"
             value={name}
@@ -179,7 +188,9 @@ export function TeacherPage() {
               <p className="font-mono text-emerald-900">
                 {studentLoginId(latestAccount.username)}
               </p>
-              <p className="font-mono text-emerald-900">{latestAccount.password}</p>
+              <p className="font-mono text-emerald-900">
+                {latestAccount.password}
+              </p>
               <Button
                 variant="success"
                 onClick={() =>
@@ -207,9 +218,6 @@ export function TeacherPage() {
           >
             <p className="text-sm font-bold text-muted">{item.year_group}</p>
             <h2 className="mt-1 text-xl font-extrabold">{item.name}</h2>
-            <p className="mt-3 inline-flex rounded-lg bg-indigo-50 px-3 py-2 font-mono text-lg font-extrabold text-primary">
-              {item.join_code}
-            </p>
           </article>
         ))}
       </section>
@@ -267,7 +275,9 @@ function RosterItem({
       );
       await onRefresh();
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : "Could not update name.");
+      onMessage(
+        error instanceof Error ? error.message : "Could not update name.",
+      );
     } finally {
       setBusy(false);
     }
@@ -287,7 +297,9 @@ function RosterItem({
       onMessage("Student login updated.");
     } catch (error) {
       onMessage(
-        error instanceof Error ? error.message : "Could not update student login.",
+        error instanceof Error
+          ? error.message
+          : "Could not update student login.",
       );
     } finally {
       setBusy(false);
@@ -353,7 +365,11 @@ function RosterItem({
             <Clipboard aria-hidden="true" className="size-4" />
             Copy
           </Button>
-          <Button variant="secondary" disabled={busy} onClick={() => void save()}>
+          <Button
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
             Save name
           </Button>
           <Button

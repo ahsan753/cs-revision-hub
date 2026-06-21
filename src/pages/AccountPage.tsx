@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
 import { SupabaseSetupNotice } from "./LoginPage";
-import { chooseDisplayProgress } from "../components/layout/displayProgress";
-import { useProgressStore } from "../store/progressStore";
 import { getRankForLevel } from "../store/rankSystem";
 
 export function AccountPage() {
@@ -18,17 +16,10 @@ export function AccountPage() {
     deleteAccount,
     signOut,
   } = useAuth();
-  const localXp = useProgressStore((state) => state.xp);
-  const localLevel = useProgressStore((state) => state.level);
-  const localStreak = useProgressStore((state) => state.streak);
   const [message, setMessage] = useState<string | null>(null);
-  const showClassNotice =
-    isVerified && profile?.role === "student" && !profile.class_id;
-  const displayedProgress = chooseDisplayProgress({
-    local: { xp: localXp, level: localLevel, streak: localStreak },
-    ranked: rankedProgress,
-  });
-  const displayedRank = getRankForLevel(displayedProgress.level);
+  const showClassNotice = profile?.role === "student" && !profile.class_id;
+  const leaderboardLevel = rankedProgress?.level ?? 1;
+  const displayedRank = getRankForLevel(leaderboardLevel);
 
   if (!configured) {
     return (
@@ -43,19 +34,21 @@ export function AccountPage() {
       <div>
         <h1 className="text-3xl font-extrabold">Account</h1>
         <p className="mt-2 text-sm font-bold text-muted">
-          Your app rank follows the highest XP total available. Leaderboard XP
-          only counts server-verified answers.
+          XP and rank only count server-verified online answers.
         </p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
         <AccountStat
-          label="App rank"
-          value={`Level ${displayedProgress.level}`}
+          label="Rank"
+          value={`Level ${leaderboardLevel}`}
           detail={displayedRank.name}
         />
-        <AccountStat label="App XP" value={displayedProgress.xp} />
-        <AccountStat label="Leaderboard XP" value={rankedProgress?.xp ?? 0} />
+        <AccountStat label="XP" value={rankedProgress?.xp ?? 0} />
+        <AccountStat
+          label="Best streak"
+          value={rankedProgress?.best_streak ?? 0}
+        />
       </section>
 
       {message ? (
@@ -67,17 +60,12 @@ export function AccountPage() {
       {showClassNotice ? (
         <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-soft">
           <h2 className="text-lg font-extrabold text-amber-900">
-            Join your class
+            Class not assigned
           </h2>
           <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
-            Enter your teacher's class code in Settings to appear on the right
-            class and global leaderboards.
+            Your teacher needs to assign this login to a class before class and
+            global leaderboards appear.
           </p>
-          <div className="mt-4">
-            <Link to="/settings">
-              <Button>Open settings</Button>
-            </Link>
-          </div>
         </section>
       ) : null}
 
@@ -126,7 +114,7 @@ export function AccountPage() {
         </div>
         {!isVerified ? (
           <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-800">
-            Verify your email before joining classes or earning ranked XP.
+            Verify your email before earning leaderboard XP.
           </p>
         ) : null}
       </section>

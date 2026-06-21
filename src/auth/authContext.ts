@@ -27,7 +27,6 @@ export interface AuthContextValue {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshRankedProgress: () => Promise<void>;
-  joinClass: (joinCode: string) => Promise<string>;
   updateLeaderboardOptIn: (optIn: boolean) => Promise<void>;
   deleteAccount: () => Promise<void>;
 }

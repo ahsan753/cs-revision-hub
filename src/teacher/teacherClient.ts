@@ -4,7 +4,6 @@ export interface TeacherClass {
   id: string;
   name: string;
   year_group: string;
-  join_code: string;
 }
 
 export interface RosterRow {
@@ -29,11 +28,10 @@ export interface CreatedStudentAccount {
 
 export async function createClass(name: string, yearGroup: string) {
   const client = requireSupabase();
-  const { data, error } = await client
-    .rpc("create_class", {
-      p_name: name,
-      p_year_group: yearGroup,
-    });
+  const { data, error } = await client.rpc("create_class", {
+    p_name: name,
+    p_year_group: yearGroup,
+  });
   if (error) throw error;
   return ((data ?? []) as TeacherClass[])[0] ?? null;
 }
@@ -42,7 +40,7 @@ export async function getTeacherClasses() {
   const client = requireSupabase();
   const { data, error } = await client
     .from("classes")
-    .select("id, name, year_group, join_code")
+    .select("id, name, year_group")
     .order("created_at", { ascending: false })
     .returns<TeacherClass[]>();
   if (error) throw error;
@@ -51,8 +49,7 @@ export async function getTeacherClasses() {
 
 export async function getClassRoster() {
   const client = requireSupabase();
-  const { data, error } = await client
-    .rpc("get_teacher_student_accounts");
+  const { data, error } = await client.rpc("get_teacher_student_accounts");
   if (error) throw error;
   return (data ?? []) as RosterRow[];
 }
