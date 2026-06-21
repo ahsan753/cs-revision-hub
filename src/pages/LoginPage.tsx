@@ -110,7 +110,7 @@ export function SignupPage() {
   return (
     <AuthSurface
       title="Create account"
-      description="Ranked XP starts from zero and only online verified answers count."
+      description="Ranked XP starts from zero and only online checked answers count."
     >
       {!configured ? <SupabaseSetupNotice /> : null}
       <form className="space-y-4" onSubmit={submit}>

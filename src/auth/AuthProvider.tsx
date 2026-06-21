@@ -19,7 +19,11 @@ import {
   type Profile,
 } from "./authContext";
 import { getAuthRedirectTo } from "./authRedirect";
-import { isAllowedStudentEmail, nameFromEmail } from "./nameFromEmail";
+import {
+  isAllowedStudentEmail,
+  isTeacherManagedAuthEmail,
+  nameFromEmail,
+} from "./nameFromEmail";
 import { normaliseLoginIdentifier } from "./studentCredentials";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -30,7 +34,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(Boolean(supabase));
 
   const user = session?.user ?? null;
-  const isVerified = Boolean(user?.email_confirmed_at);
+  const isVerified = Boolean(
+    user?.email_confirmed_at || isTeacherManagedAuthEmail(user?.email),
+  );
 
   const refreshProfile = useCallback(async () => {
     if (!supabase) return;

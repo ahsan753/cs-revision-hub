@@ -6,6 +6,12 @@ export function isAllowedStudentEmail(email: string) {
   return email.trim().toLowerCase().endsWith(`@${studentEmailDomain}`);
 }
 
+export function isTeacherManagedAuthEmail(email?: string | null) {
+  return Boolean(
+    email?.trim().toLowerCase().endsWith(`@${teacherManagedAuthEmailDomain}`),
+  );
+}
+
 export function nameFromEmail(email: string) {
   const local = email.split("@")[0] ?? "";
   const withoutPlusTag = local.split("+")[0] ?? local;

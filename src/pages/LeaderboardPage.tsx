@@ -80,7 +80,7 @@ export function LeaderboardPage() {
         <div>
           <h1 className="text-3xl font-extrabold">Leaderboard</h1>
           <p className="mt-2 text-sm font-bold text-muted">
-            Only server-verified ranked XP appears here.
+            Only server-checked ranked XP appears here.
           </p>
         </div>
         <Button
@@ -93,7 +93,7 @@ export function LeaderboardPage() {
       </div>
 
       {!isVerified ? (
-        <Notice>Verify your email before using ranked leaderboards.</Notice>
+        <Notice>Finish account setup before using ranked leaderboards.</Notice>
       ) : !profile?.class_id ? (
         <Notice>
           Your teacher needs to assign this login to a class before class and

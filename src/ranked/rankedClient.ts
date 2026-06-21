@@ -1,4 +1,5 @@
 import { requireSupabase, supabase } from "../lib/supabaseClient";
+import { isTeacherManagedAuthEmail } from "../auth/nameFromEmail";
 import type {
   DailyStat,
   LeaderboardRow,
@@ -31,7 +32,13 @@ export async function recordRankedAnswer({
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session?.user.email_confirmed_at) return null;
+  if (
+    !session ||
+    (!session.user.email_confirmed_at &&
+      !isTeacherManagedAuthEmail(session.user.email))
+  ) {
+    return null;
+  }
 
   const eventId = crypto.randomUUID();
   const { data, error } = await supabase.functions.invoke<RankedAnswerResponse>(

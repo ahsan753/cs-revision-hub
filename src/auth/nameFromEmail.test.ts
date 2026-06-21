@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { isAllowedStudentEmail, nameFromEmail } from "./nameFromEmail";
+import {
+  isAllowedStudentEmail,
+  isTeacherManagedAuthEmail,
+  nameFromEmail,
+} from "./nameFromEmail";
 
 describe("nameFromEmail", () => {
   it("derives a private displayable name from school email local parts", () => {
@@ -14,5 +18,14 @@ describe("nameFromEmail", () => {
   it("checks the student email domain", () => {
     expect(isAllowedStudentEmail("a@student.orbital.education")).toBe(true);
     expect(isAllowedStudentEmail("a@example.com")).toBe(false);
+  });
+
+  it("recognises teacher-managed login auth emails", () => {
+    expect(isTeacherManagedAuthEmail("ali.khan@csrevisionhub.local")).toBe(
+      true,
+    );
+    expect(isTeacherManagedAuthEmail("ali.khan@student.orbital.education")).toBe(
+      false,
+    );
   });
 });

@@ -4,6 +4,7 @@ import { Button } from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
 import { SupabaseSetupNotice } from "./LoginPage";
 import { getRankForLevel } from "../store/rankSystem";
+import { isTeacherManagedAuthEmail } from "../auth/nameFromEmail";
 
 export function AccountPage() {
   const {
@@ -20,6 +21,11 @@ export function AccountPage() {
   const showClassNotice = profile?.role === "student" && !profile.class_id;
   const leaderboardLevel = rankedProgress?.level ?? 1;
   const displayedRank = getRankForLevel(leaderboardLevel);
+  const statusLabel = isTeacherManagedAuthEmail(user?.email)
+    ? "Managed login"
+    : isVerified
+      ? "Ready"
+      : "Check email";
 
   if (!configured) {
     return (
@@ -34,7 +40,7 @@ export function AccountPage() {
       <div>
         <h1 className="text-3xl font-extrabold">Account</h1>
         <p className="mt-2 text-sm font-bold text-muted">
-          XP and rank only count server-verified online answers.
+          XP and rank only count online answers checked by the server.
         </p>
       </div>
 
@@ -77,9 +83,7 @@ export function AccountPage() {
           </p>
           <p>
             Status:{" "}
-            <span className="text-muted">
-              {isVerified ? "Verified" : "Check email"}
-            </span>
+            <span className="text-muted">{statusLabel}</span>
           </p>
           <p>
             Role:{" "}
@@ -114,7 +118,7 @@ export function AccountPage() {
         </div>
         {!isVerified ? (
           <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-800">
-            Verify your email before earning leaderboard XP.
+            Check your email before earning leaderboard XP.
           </p>
         ) : null}
       </section>

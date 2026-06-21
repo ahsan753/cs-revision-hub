@@ -411,7 +411,7 @@ function Results({
       <h1 className="mt-5 text-3xl font-extrabold">Smart session complete</h1>
       <p className="mt-2 text-muted">
         You scored {correct} / {answers.length}. XP is recorded only for
-        server-verified online answers.
+        server-checked online answers.
       </p>
       <div className="mt-5 grid gap-3 text-sm font-bold md:grid-cols-3">
         <span className="rounded-lg bg-indigo-50 p-3 text-primary">

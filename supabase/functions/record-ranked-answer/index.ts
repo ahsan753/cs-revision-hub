@@ -46,6 +46,7 @@ const allowedActivities = new Set<Activity>([
   "code",
   "convert",
 ]);
+const teacherManagedAuthEmailDomain = "csrevisionhub.local";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -66,8 +67,13 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return jsonResponse(req, { error: "Unauthorised" }, { status: 401 });
     }
-    if (!user.email_confirmed_at) {
-      return jsonResponse(req, { error: "Email is not verified" }, { status: 403 });
+    const admin = adminClient();
+    if (!(await isRankedAccountReady(admin, user))) {
+      return jsonResponse(
+        req,
+        { error: "Account is not ready for ranked XP" },
+        { status: 403 },
+      );
     }
 
     const body = (await req.json()) as RequestBody;
@@ -76,7 +82,6 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { error: validation }, { status: 400 });
     }
 
-    const admin = adminClient();
     const { data: duplicate, error: duplicateError } = await admin
       .from("answer_events")
       .select("xp_awarded, correct")
@@ -162,6 +167,24 @@ function getBearerToken(req: Request) {
   const match = header.match(/^Bearer\s+(.+)$/i);
   if (!match) throw new Error("Missing bearer token");
   return match[1];
+}
+
+async function isRankedAccountReady(
+  admin: ReturnType<typeof adminClient>,
+  user: { id: string; email?: string | null; email_confirmed_at?: string | null },
+) {
+  if (user.email_confirmed_at) return true;
+  if (!user.email?.trim().toLowerCase().endsWith(`@${teacherManagedAuthEmailDomain}`)) {
+    return false;
+  }
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("login_username, role")
+    .eq("id", user.id)
+    .maybeSingle<{ login_username: string | null; role: string }>();
+  if (error) throw error;
+  return data?.role === "student" && Boolean(data.login_username);
 }
 
 function validateRequestBody(body: RequestBody) {
