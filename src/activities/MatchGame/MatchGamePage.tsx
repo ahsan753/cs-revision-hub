@@ -184,10 +184,11 @@ export function MatchGamePage() {
         },
       },
     };
-    const xpGained = recordAnswer(result, difficulty);
+    recordAnswer(result, difficulty, {
+      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+    });
     if (correct) {
       matchedIdsRef.current.add(card.id);
-      if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
       setWrongMatch(null);
       const nextMatched = { ...matched, [card.id]: true };
       setMatched(nextMatched);

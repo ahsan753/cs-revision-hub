@@ -21,10 +21,12 @@ export async function recordRankedAnswer({
   rankedItemId,
   activity,
   submitted,
+  suppressXpAwardedEvent = false,
 }: {
   rankedItemId: string;
   activity: RankedActivity;
   submitted: RankedSubmission;
+  suppressXpAwardedEvent?: boolean;
 }) {
   if (!supabase || typeof navigator !== "undefined" && !navigator.onLine) {
     return null;
@@ -58,7 +60,7 @@ export async function recordRankedAnswer({
     window.dispatchEvent(
       new CustomEvent(rankedProgressEvent, { detail: data.totals }),
     );
-    if (data.xp_awarded > 0) {
+    if (!suppressXpAwardedEvent && data.xp_awarded > 0) {
       window.dispatchEvent(
         new CustomEvent(rankedXpAwardedEvent, {
           detail: { amount: data.xp_awarded },

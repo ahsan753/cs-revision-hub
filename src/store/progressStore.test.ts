@@ -3,6 +3,7 @@ import {
   fixedDailyGoal,
   getCelebrationEventsForAnswer,
   getItemAccuracyPercent,
+  getRankedXpPreviewForAnswer,
   getXpForAnswer,
   isProgressSnapshot,
   levelFromXp,
@@ -169,6 +170,58 @@ describe("XP policy", () => {
           correctCount: 2,
           latestCorrect: true,
           nextDue: now - 1,
+        },
+        now,
+      ),
+    ).toBe(0);
+  });
+
+  it("previews ranked XP for correct ranked answers without changing local XP", () => {
+    const result = {
+      activity: "quiz" as const,
+      correct: true,
+      ranked: {
+        rankedItemId: "u1-mcq-1",
+        submitted: { kind: "mcq" as const, selectedIndex: 0 },
+      },
+    };
+
+    expect(getRankedXpPreviewForAnswer(result, 3)).toBe(30);
+    expect(getXpForAnswer(result, 3)).toBe(0);
+  });
+
+  it("does not preview ranked XP for incorrect, flashcard, or not-due mastered answers", () => {
+    const ranked = {
+      rankedItemId: "u1-mcq-1",
+      submitted: { kind: "mcq" as const, selectedIndex: 0 },
+    };
+    const now = Date.now();
+
+    expect(
+      getRankedXpPreviewForAnswer({
+        activity: "quiz",
+        correct: false,
+        ranked,
+      }),
+    ).toBe(0);
+    expect(
+      getRankedXpPreviewForAnswer({
+        activity: "flashcards",
+        correct: true,
+        ranked,
+      }),
+    ).toBe(0);
+    expect(
+      getRankedXpPreviewForAnswer(
+        {
+          activity: "quiz",
+          correct: true,
+          ranked,
+        },
+        1,
+        {
+          correctCount: 2,
+          nextDue: now + 60_000,
         },
         now,
       ),

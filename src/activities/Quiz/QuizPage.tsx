@@ -52,7 +52,7 @@ export function QuizPage() {
     (state) => state.recordDailyTaskCompletion,
   );
   const progressRef = useRef(progress);
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  const selectedOptionRef = useRef<HTMLButtonElement | null>(null);
   const submittedQuestionRef = useRef<string | null>(null);
   progressRef.current = progress;
   const { triggerXpFloat } = useXpFloat();
@@ -98,6 +98,7 @@ export function QuizPage() {
     submittedQuestionRef.current = restored.answered
       ? (restored.session.queue[0]?.id ?? null)
       : null;
+    selectedOptionRef.current = null;
   }, [scopeKey, sourceItems]);
 
   const current = session.queue[0];
@@ -170,6 +171,7 @@ export function QuizPage() {
               setAnswered(false);
               setAnswerResults({});
               submittedQuestionRef.current = null;
+              selectedOptionRef.current = null;
               setCorrectCount(0);
               setAnsweredCount(0);
             }}
@@ -230,8 +232,10 @@ export function QuizPage() {
         submitted: { kind: "mcq" as const, selectedIndex: selected },
       },
     };
-    const xpGained = recordAnswer(result, difficulty);
-    if (xpGained > 0) triggerXpFloat(xpGained, cardRef.current);
+    recordAnswer(result, difficulty, {
+      onRankedXpPreview: (amount) =>
+        triggerXpFloat(amount, selectedOptionRef.current),
+    });
   };
 
   const next = () => {
@@ -254,6 +258,7 @@ export function QuizPage() {
     });
     if (willFinish) recordDailyTaskCompletion(location.pathname);
     setSelected(null);
+    selectedOptionRef.current = null;
     setAnswered(false);
     submittedQuestionRef.current = null;
   };
@@ -317,10 +322,7 @@ export function QuizPage() {
       </div>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div
-          ref={cardRef}
-          className="rounded-lg border border-line bg-white p-5 shadow-soft"
-        >
+        <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
           <div className="mb-5 flex items-start gap-3">
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-600">
               <HelpCircle size={26} />
@@ -347,7 +349,11 @@ export function QuizPage() {
                           ? "border-primary bg-indigo-50 text-primary"
                           : "border-line bg-white hover:border-primary"
                   }`}
-                  onClick={() => !answered && setSelected(optionIndex)}
+                  onClick={(event) => {
+                    if (answered) return;
+                    selectedOptionRef.current = event.currentTarget;
+                    setSelected(optionIndex);
+                  }}
                   disabled={answered}
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-current text-xs">

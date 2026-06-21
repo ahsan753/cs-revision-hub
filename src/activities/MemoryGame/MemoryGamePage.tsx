@@ -171,10 +171,11 @@ export function MemoryGamePage() {
             }
           : undefined,
       };
-      const xpGained = recordAnswer(result, difficulty);
+      recordAnswer(result, difficulty, {
+        onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+      });
       if (correct) {
         matchedPairIdsRef.current.add(second.pairId);
-        if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
         const nextMatched = { ...matched, [second.pairId]: true };
         setMatched(nextMatched);
         if (Object.keys(nextMatched).length === deck.length / 2) {

@@ -90,7 +90,11 @@ export type CelebrationEvent =
     };
 
 interface ProgressActions {
-  recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => number;
+  recordAnswer: (
+    result: ActivityResult,
+    difficulty?: 1 | 2 | 3,
+    options?: RecordAnswerOptions,
+  ) => number;
   recordDailyTaskCompletion: (taskId: string) => void;
   recordTimedActivityBest: (activityKey: string, elapsedMs: number) => boolean;
   refreshDailyProgress: () => void;
@@ -106,6 +110,10 @@ export type ProgressState = ProgressSnapshot &
   ProgressActions & {
     celebrations: CelebrationEvent[];
   };
+
+interface RecordAnswerOptions {
+  onRankedXpPreview?: (amount: number) => void;
+}
 
 export const fixedDailyGoal = 5;
 const dayMs = 24 * 60 * 60 * 1000;
@@ -147,6 +155,24 @@ export function getXpForAnswer(
   void _previous;
   void _timestamp;
   return 0;
+}
+
+export function getRankedXpPreviewForAnswer(
+  result: Pick<ActivityResult, "activity" | "correct" | "ranked">,
+  difficulty: 1 | 2 | 3 = 1,
+  previous?: Pick<ItemProgress, "correctCount" | "nextDue">,
+  timestamp = Date.now(),
+) {
+  if (
+    !result.ranked ||
+    !result.correct ||
+    result.activity === "flashcards" ||
+    (previous && previous.correctCount >= 2 && previous.nextDue > timestamp)
+  ) {
+    return 0;
+  }
+
+  return 10 * Math.max(1, Math.min(3, difficulty));
 }
 
 function freshProgress(): ProgressSnapshot {
@@ -710,13 +736,23 @@ export const useProgressStore = create<ProgressState>((set, get) => {
   return {
     ...initial,
     celebrations: [],
-    recordAnswer: (result, difficulty = 1) => {
+    recordAnswer: (result, difficulty = 1, options) => {
       let awardedXp = 0;
       if (result.ranked && result.activity !== "flashcards") {
+        const rankedXpPreview = getRankedXpPreviewForAnswer(
+          result,
+          difficulty,
+          get().itemProgress[result.itemId],
+          result.timestamp,
+        );
+        if (rankedXpPreview > 0) {
+          options?.onRankedXpPreview?.(rankedXpPreview);
+        }
         void recordRankedAnswer({
           rankedItemId: result.ranked.rankedItemId,
           activity: result.activity,
           submitted: result.ranked.submitted,
+          suppressXpAwardedEvent: rankedXpPreview > 0,
         }).catch(() => undefined);
       }
       set((state) => {

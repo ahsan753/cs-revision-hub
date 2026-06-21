@@ -119,8 +119,9 @@ export function ConversionTrainerPage() {
         },
       },
     };
-    const xpGained = recordAnswer(answerResult, 2);
-    if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
+    recordAnswer(answerResult, 2, {
+      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+    });
     recordDailyTaskCompletion(location.pathname);
   };
 

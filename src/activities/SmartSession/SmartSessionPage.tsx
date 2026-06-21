@@ -6,7 +6,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import type { MutableRefObject, ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useXpFloat } from "../../hooks/useXpFloat";
@@ -40,6 +40,7 @@ export function SmartSessionPage() {
   const [revealed, setRevealed] = useState(false);
   const [flashcardRevealed, setFlashcardRevealed] = useState(false);
   const answeredItemRef = useRef<string | null>(null);
+  const selectedOptionRef = useRef<HTMLButtonElement | null>(null);
 
   const current = plan.items[index];
   const complete = plan.items.length > 0 && index >= plan.items.length;
@@ -54,6 +55,7 @@ export function SmartSessionPage() {
     setRevealed(false);
     setFlashcardRevealed(false);
     answeredItemRef.current = null;
+    selectedOptionRef.current = null;
   };
 
   if (plan.items.length === 0) {
@@ -96,13 +98,14 @@ export function SmartSessionPage() {
             }
           : undefined,
     };
-    const xpGained = recordAnswer(result, difficulty);
+    const xpGained = recordAnswer(result, difficulty, {
+      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+    });
     setRevealed(true);
     setAnswers((value) => [
       ...value,
       { id: current.id, type: current.type, correct, xpGained },
     ]);
-    if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
   };
 
   const next = () => {
@@ -111,6 +114,7 @@ export function SmartSessionPage() {
     setRevealed(false);
     setFlashcardRevealed(false);
     answeredItemRef.current = null;
+    selectedOptionRef.current = null;
   };
 
   return (
@@ -160,8 +164,12 @@ export function SmartSessionPage() {
           item={current.item}
           selected={selected}
           revealed={revealed}
-          onSelect={setSelected}
+          onSelect={(index, anchorEl) => {
+            selectedOptionRef.current = anchorEl;
+            setSelected(index);
+          }}
           onAnswer={answer}
+          selectedOptionRef={selectedOptionRef}
         />
       ) : (
         <SmartFlashcard
@@ -227,16 +235,18 @@ function SmartMcq({
   revealed,
   onSelect,
   onAnswer,
+  selectedOptionRef,
 }: {
   item: MCQ;
   selected: number | null;
   revealed: boolean;
-  onSelect: (index: number) => void;
+  onSelect: (index: number, anchorEl: HTMLButtonElement) => void;
   onAnswer: (
     correct: boolean,
     anchorEl?: HTMLElement | null,
     selectedIndex?: number,
   ) => void;
+  selectedOptionRef: MutableRefObject<HTMLButtonElement | null>;
 }) {
   const options = item.options ?? [];
   const correctIndex = item.answerIndex ?? 0;
@@ -271,7 +281,9 @@ function SmartMcq({
                         ? "border-primary bg-indigo-50 text-primary"
                         : "border-line bg-white hover:border-primary"
                 }`}
-                onClick={() => !revealed && onSelect(optionIndex)}
+                onClick={(event) =>
+                  !revealed && onSelect(optionIndex, event.currentTarget)
+                }
                 disabled={revealed}
               >
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-current text-xs">
@@ -292,7 +304,11 @@ function SmartMcq({
             <Button
               disabled={selected === null}
               onClick={(event) =>
-                onAnswer(isCorrect, event.currentTarget, selected ?? undefined)
+                onAnswer(
+                  isCorrect,
+                  selectedOptionRef.current ?? event.currentTarget,
+                  selected ?? undefined,
+                )
               }
             >
               Check answer

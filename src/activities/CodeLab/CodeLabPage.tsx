@@ -74,6 +74,7 @@ export function CodeLabPage() {
     correct: boolean,
     message: string,
     submitted: RankedSubmission,
+    anchorEl?: HTMLElement | null,
   ) => {
     if (!task) return;
     if (correct && correctTaskIdsRef.current.has(task.id)) return;
@@ -90,8 +91,9 @@ export function CodeLabPage() {
         submitted,
       },
     };
-    const xpGained = recordAnswer(result, difficulty);
-    if (xpGained > 0) triggerXpFloat(xpGained);
+    recordAnswer(result, difficulty, {
+      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+    });
     recordDailyTaskCompletion(location.pathname);
   };
 
@@ -234,6 +236,7 @@ function TaskRenderer({
     correct: boolean,
     message: string,
     submitted: RankedSubmission,
+    anchorEl?: HTMLElement | null,
   ) => void;
 }) {
   if (task.type === "predict-output")
@@ -282,6 +285,7 @@ function PredictOutput({
     correct: boolean,
     message: string,
     submitted: RankedSubmission,
+    anchorEl?: HTMLElement | null,
   ) => void;
 }) {
   const answer = draft.predictAnswer ?? "";
@@ -297,12 +301,13 @@ function PredictOutput({
       : submittedState === "incorrect"
         ? "border-rose-400 bg-rose-50 text-rose-950 ring-2 ring-rose-100 focus:border-rose-500"
         : "border-line focus:border-primary";
-  const check = () => {
+  const check = (anchorEl?: HTMLElement | null) => {
     const correct = accept.includes(normaliseText(answer));
     onResult(
       correct,
       correct ? "Output matched." : `Expected: ${task.answer}`,
       { kind: "code-predict", answer },
+      anchorEl,
     );
   };
   return (
@@ -323,7 +328,7 @@ function PredictOutput({
       </label>
       <Button
         variant={result ? (result.correct ? "success" : "danger") : "primary"}
-        onClick={check}
+        onClick={(event) => check(event.currentTarget)}
         disabled={result?.correct}
       >
         {result ? (
@@ -354,6 +359,7 @@ function FillBlank({
     correct: boolean,
     message: string,
     submitted: RankedSubmission,
+    anchorEl?: HTMLElement | null,
   ) => void;
 }) {
   const answers = draft.blankAnswers ?? {};
@@ -395,13 +401,14 @@ function FillBlank({
       </div>
       <Button
         variant={result ? (result.correct ? "success" : "danger") : "primary"}
-        onClick={() =>
+        onClick={(event) =>
           onResult(
             correct,
             correct
               ? "All blanks are correct."
               : "One or more blanks need another look.",
             { kind: "code-fill", answersByBlankId: answers },
+            event.currentTarget,
           )
         }
         disabled={result?.correct}
@@ -459,6 +466,7 @@ function Parsons({
     correct: boolean,
     message: string,
     submitted: RankedSubmission,
+    anchorEl?: HTMLElement | null,
   ) => void;
 }) {
   const fallbackLines = useMemo(
@@ -476,7 +484,7 @@ function Parsons({
       result: null,
     });
   };
-  const check = () => {
+  const check = (anchorEl?: HTMLElement | null) => {
     const used = lines.slice(0, task.lines.length);
     const correct =
       used.length === task.lines.length &&
@@ -488,6 +496,7 @@ function Parsons({
         ? "The algorithm is in the correct order."
         : "Move the correct lines to the top in the right order. Distractors should stay below.",
       { kind: "code-parsons", lines },
+      anchorEl,
     );
   };
   return (
@@ -527,7 +536,7 @@ function Parsons({
       <div className="flex gap-2">
         <Button
           variant={result ? (result.correct ? "success" : "danger") : "primary"}
-          onClick={check}
+          onClick={(event) => check(event.currentTarget)}
           disabled={result?.correct}
         >
           {result ? (
