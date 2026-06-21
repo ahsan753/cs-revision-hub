@@ -14,7 +14,6 @@ export function AccountPage() {
     rankedProgress,
     isVerified,
     updateLeaderboardOptIn,
-    deleteAccount,
     signOut,
   } = useAuth();
   const [message, setMessage] = useState<string | null>(null);
@@ -156,20 +155,6 @@ export function AccountPage() {
         <div className="mt-5 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => void signOut()}>
             Sign out
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => {
-              if (window.confirm("Delete this account and ranked history?")) {
-                void deleteAccount().catch((error) =>
-                  setMessage(
-                    error instanceof Error ? error.message : "Delete failed.",
-                  ),
-                );
-              }
-            }}
-          >
-            Delete account
           </Button>
         </div>
       </section>

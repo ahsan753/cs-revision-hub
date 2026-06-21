@@ -15,6 +15,10 @@ type AccountRequest =
       student_id?: string;
       username?: string;
       password?: string;
+    }
+  | {
+      action: "delete";
+      student_id?: string;
     };
 
 Deno.serve(async (req) => {
@@ -50,6 +54,10 @@ Deno.serve(async (req) => {
 
     if (body.action === "update") {
       return jsonResponse(req, await updateStudentAccount(admin, user.id, body));
+    }
+
+    if (body.action === "delete") {
+      return jsonResponse(req, await deleteStudentAccount(admin, user.id, body));
     }
 
     return jsonResponse(req, { error: "Invalid action" }, { status: 400 });
@@ -173,6 +181,22 @@ async function updateStudentAccount(
   }
 
   return { ok: true, username: profileUpdates.login_username ?? null };
+}
+
+async function deleteStudentAccount(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+  body: Extract<AccountRequest, { action: "delete" }>,
+) {
+  const studentId = cleanUuid(body.student_id);
+  if (!studentId) throw new Error("Student account is required.");
+
+  await requireTeacherOwnsStudent(admin, teacherId, studentId);
+
+  const { error } = await admin.auth.admin.deleteUser(studentId);
+  if (error) throw error;
+
+  return { ok: true };
 }
 
 async function requireTeacher(admin: ReturnType<typeof adminClient>, teacherId: string) {

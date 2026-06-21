@@ -171,13 +171,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
         await refreshProfile();
       },
-      deleteAccount: async () => {
-        const client = requireSupabase();
-        const { error } = await client.functions.invoke("delete-account");
-        if (error) throw error;
-        await client.auth.signOut();
-        useProgressStore.getState().switchProgressScope(null);
-      },
     }),
     [
       isVerified,

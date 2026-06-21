@@ -101,6 +101,17 @@ export async function updateManagedStudentAccount({
   if (error) throw error;
 }
 
+export async function deleteManagedStudentAccount(studentId: string) {
+  const client = requireSupabase();
+  const { error } = await client.functions.invoke("teacher-student-accounts", {
+    body: {
+      action: "delete",
+      student_id: studentId,
+    },
+  });
+  if (error) throw error;
+}
+
 export async function setStudentDisplayName(
   studentId: string,
   displayName: string | null,

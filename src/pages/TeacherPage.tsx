@@ -1,13 +1,13 @@
 import { FormEvent, useEffect, useState } from "react";
-import { Clipboard, KeyRound, RefreshCcw, UserPlus } from "lucide-react";
+import { Clipboard, KeyRound, RefreshCcw, Trash2, UserPlus } from "lucide-react";
 import { studentLoginId } from "../auth/studentCredentials";
 import { Button } from "../components/ui/Button";
 import {
   createClass,
   createManagedStudentAccount,
+  deleteManagedStudentAccount,
   getClassRoster,
   getTeacherClasses,
-  removeStudentFromClass,
   setStudentDisplayName,
   updateManagedStudentAccount,
   type CreatedStudentAccount,
@@ -383,22 +383,30 @@ function RosterItem({
             variant="danger"
             disabled={busy}
             onClick={() => {
-              if (window.confirm("Remove this student from the class?")) {
+              if (
+                window.confirm(
+                  "Delete this student's account and ranked history? This cannot be undone.",
+                )
+              ) {
                 setBusy(true);
-                removeStudentFromClass(student.student_id)
-                  .then(onRefresh)
+                deleteManagedStudentAccount(student.student_id)
+                  .then(async () => {
+                    await onRefresh();
+                    onMessage("Student account deleted.");
+                  })
                   .catch((error) =>
                     onMessage(
                       error instanceof Error
                         ? error.message
-                        : "Could not remove student.",
+                        : "Could not delete student account.",
                     ),
                   )
                   .finally(() => setBusy(false));
               }
             }}
           >
-            Remove
+            <Trash2 aria-hidden="true" className="size-4" />
+            Delete account
           </Button>
         </div>
       </div>

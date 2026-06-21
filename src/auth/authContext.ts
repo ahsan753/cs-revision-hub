@@ -28,7 +28,6 @@ export interface AuthContextValue {
   refreshProfile: () => Promise<void>;
   refreshRankedProgress: () => Promise<void>;
   updateLeaderboardOptIn: (optIn: boolean) => Promise<void>;
-  deleteAccount: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

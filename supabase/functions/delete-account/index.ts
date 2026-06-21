@@ -1,4 +1,4 @@
-import { adminClient, userClient } from "../_shared/supabase.ts";
+import { userClient } from "../_shared/supabase.ts";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 Deno.serve(async (req) => {
@@ -20,11 +20,14 @@ Deno.serve(async (req) => {
       return jsonResponse(req, { error: "Unauthorised" }, { status: 401 });
     }
 
-    const admin = adminClient();
-    const { error } = await admin.auth.admin.deleteUser(user.id);
-    if (error) throw error;
-
-    return jsonResponse(req, { ok: true });
+    return jsonResponse(
+      req,
+      {
+        error:
+          "Self-service account deletion is disabled. Student accounts must be deleted by a teacher.",
+      },
+      { status: 403 },
+    );
   } catch (error) {
     return jsonResponse(
       req,
