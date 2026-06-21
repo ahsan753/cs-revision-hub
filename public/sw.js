@@ -29,6 +29,14 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (
+    url.hostname.endsWith(".supabase.co") ||
+    url.hostname.endsWith(".supabase.com")
+  ) {
+    return;
+  }
+
   if (event.request.method !== "GET") return;
 
   if (event.request.mode === "navigate") {

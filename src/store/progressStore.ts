@@ -1,7 +1,14 @@
 import { create } from "zustand";
 import { contentIndex } from "../content/contentIndex";
+import { recordRankedAnswer } from "../ranked/rankedClient";
+import type { RankedPayload } from "../ranked/rankedTypes";
 import { getSubtopicMastery, getUnitMastery } from "./mastery";
-import { clearProgress, readProgress, writeProgress } from "./storage";
+import {
+  clearProgress,
+  readProgress,
+  setProgressStorageUser,
+  writeProgress,
+} from "./storage";
 
 export type ActivityType =
   | "flashcards"
@@ -16,6 +23,7 @@ export interface ActivityResult {
   correct: boolean;
   activity: ActivityType;
   timestamp: number;
+  ranked?: RankedPayload;
 }
 
 export interface ItemProgress {
@@ -88,6 +96,7 @@ interface ProgressActions {
   refreshDailyProgress: () => void;
   setName: (name: string) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
+  switchProgressScope: (userId?: string | null) => void;
   importProgress: (snapshot: unknown) => boolean;
   resetProgress: () => void;
   consumeCelebrations: () => CelebrationEvent[];
@@ -728,6 +737,13 @@ export const useProgressStore = create<ProgressState>((set, get) => {
     celebrations: [],
     recordAnswer: (result, difficulty = 1) => {
       let awardedXp = 0;
+      if (result.ranked && result.activity !== "flashcards") {
+        void recordRankedAnswer({
+          rankedItemId: result.ranked.rankedItemId,
+          activity: result.activity,
+          submitted: result.ranked.submitted,
+        }).catch(() => undefined);
+      }
       set((state) => {
         const before = toProgressSnapshot(state);
         const daily = currentDailyProgress(state.dailyProgress);
@@ -866,6 +882,14 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           ...toProgressSnapshot(state),
           settings: { ...state.settings, ...settings },
         }),
+        celebrations: state.celebrations,
+      }));
+    },
+    switchProgressScope: (userId) => {
+      setProgressStorageUser(userId);
+      const next = normaliseSnapshot(readProgress());
+      set((state) => ({
+        ...next,
         celebrations: state.celebrations,
       }));
     },

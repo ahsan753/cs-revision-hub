@@ -225,6 +225,10 @@ export function QuizPage() {
       correct,
       activity: "quiz" as const,
       timestamp: Date.now(),
+      ranked: {
+        rankedItemId: current.id,
+        submitted: { kind: "mcq" as const, selectedIndex: selected },
+      },
     };
     const xpGained = recordAnswer(result, difficulty);
     if (xpGained > 0) triggerXpFloat(xpGained, cardRef.current);

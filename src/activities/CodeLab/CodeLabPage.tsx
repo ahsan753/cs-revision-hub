@@ -24,6 +24,7 @@ import type {
   ParsonsTask,
   PredictOutputTask,
 } from "../../data/contentTypes";
+import type { RankedSubmission } from "../../ranked/rankedTypes";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText, shuffle } from "../shared/activityUtils";
 
@@ -69,7 +70,11 @@ export function CodeLabPage() {
     }));
   };
 
-  const report = (correct: boolean, message: string) => {
+  const report = (
+    correct: boolean,
+    message: string,
+    submitted: RankedSubmission,
+  ) => {
     if (!task) return;
     if (correct && correctTaskIdsRef.current.has(task.id)) return;
     if (correct) correctTaskIdsRef.current.add(task.id);
@@ -80,6 +85,10 @@ export function CodeLabPage() {
       correct,
       activity: "code" as const,
       timestamp: Date.now(),
+      ranked: {
+        rankedItemId: task.id,
+        submitted,
+      },
     };
     const xpGained = recordAnswer(result, difficulty);
     if (xpGained > 0) triggerXpFloat(xpGained);
@@ -221,7 +230,11 @@ function TaskRenderer({
   draft: CodeLabDraft;
   result: CodeLabResult | null;
   updateDraft: (patch: Partial<CodeLabDraft>) => void;
-  onResult: (correct: boolean, message: string) => void;
+  onResult: (
+    correct: boolean,
+    message: string,
+    submitted: RankedSubmission,
+  ) => void;
 }) {
   if (task.type === "predict-output")
     return (
@@ -265,7 +278,11 @@ function PredictOutput({
   draft: CodeLabDraft;
   result: CodeLabResult | null;
   updateDraft: (patch: Partial<CodeLabDraft>) => void;
-  onResult: (correct: boolean, message: string) => void;
+  onResult: (
+    correct: boolean,
+    message: string,
+    submitted: RankedSubmission,
+  ) => void;
 }) {
   const answer = draft.predictAnswer ?? "";
   const accept = [task.answer, ...(task.accept ?? [])].map(normaliseText);
@@ -282,7 +299,11 @@ function PredictOutput({
         : "border-line focus:border-primary";
   const check = () => {
     const correct = accept.includes(normaliseText(answer));
-    onResult(correct, correct ? "Output matched." : `Expected: ${task.answer}`);
+    onResult(
+      correct,
+      correct ? "Output matched." : `Expected: ${task.answer}`,
+      { kind: "code-predict", answer },
+    );
   };
   return (
     <div className="space-y-4">
@@ -329,7 +350,11 @@ function FillBlank({
   draft: CodeLabDraft;
   result: CodeLabResult | null;
   updateDraft: (patch: Partial<CodeLabDraft>) => void;
-  onResult: (correct: boolean, message: string) => void;
+  onResult: (
+    correct: boolean,
+    message: string,
+    submitted: RankedSubmission,
+  ) => void;
 }) {
   const answers = draft.blankAnswers ?? {};
   const correct = task.blanks.every((blank) => {
@@ -376,6 +401,7 @@ function FillBlank({
             correct
               ? "All blanks are correct."
               : "One or more blanks need another look.",
+            { kind: "code-fill", answersByBlankId: answers },
           )
         }
         disabled={result?.correct}
@@ -429,7 +455,11 @@ function Parsons({
   draft: CodeLabDraft;
   result: CodeLabResult | null;
   updateDraft: (patch: Partial<CodeLabDraft>) => void;
-  onResult: (correct: boolean, message: string) => void;
+  onResult: (
+    correct: boolean,
+    message: string,
+    submitted: RankedSubmission,
+  ) => void;
 }) {
   const fallbackLines = useMemo(
     () => shuffle([...task.lines, ...(task.distractors ?? [])]),
@@ -457,6 +487,7 @@ function Parsons({
       correct
         ? "The algorithm is in the correct order."
         : "Move the correct lines to the top in the right order. Distractors should stay below.",
+      { kind: "code-parsons", lines },
     );
   };
   return (

@@ -74,7 +74,11 @@ export function SmartSessionPage() {
     return <Results plan={plan} answers={answers} onRestart={restart} />;
   }
 
-  const answer = (correct: boolean, anchorEl?: HTMLElement | null) => {
+  const answer = (
+    correct: boolean,
+    anchorEl?: HTMLElement | null,
+    selectedIndex?: number,
+  ) => {
     if (!current || revealed || answeredItemRef.current === current.id) return;
     answeredItemRef.current = current.id;
     const difficulty = getDefaultDifficulty(current.item.difficulty);
@@ -84,6 +88,13 @@ export function SmartSessionPage() {
       activity:
         current.type === "mcq" ? ("quiz" as const) : ("flashcards" as const),
       timestamp: Date.now(),
+      ranked:
+        current.type === "mcq" && typeof selectedIndex === "number"
+          ? {
+              rankedItemId: current.id,
+              submitted: { kind: "mcq" as const, selectedIndex },
+            }
+          : undefined,
     };
     const xpGained = recordAnswer(result, difficulty);
     setRevealed(true);
@@ -221,7 +232,11 @@ function SmartMcq({
   selected: number | null;
   revealed: boolean;
   onSelect: (index: number) => void;
-  onAnswer: (correct: boolean, anchorEl?: HTMLElement | null) => void;
+  onAnswer: (
+    correct: boolean,
+    anchorEl?: HTMLElement | null,
+    selectedIndex?: number,
+  ) => void;
 }) {
   const options = item.options ?? [];
   const correctIndex = item.answerIndex ?? 0;
@@ -276,7 +291,13 @@ function SmartMcq({
           <div className="mt-6 flex justify-end">
             <Button
               disabled={selected === null}
-              onClick={(event) => onAnswer(isCorrect, event.currentTarget)}
+              onClick={(event) =>
+                onAnswer(
+                  isCorrect,
+                  event.currentTarget,
+                  selected ?? undefined,
+                )
+              }
             >
               Check answer
             </Button>

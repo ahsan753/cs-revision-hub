@@ -175,6 +175,14 @@ export function MatchGamePage() {
       correct,
       activity: "match" as const,
       timestamp: Date.now(),
+      ranked: {
+        rankedItemId: selectedTerm,
+        submitted: {
+          kind: "match" as const,
+          termId: selectedTerm,
+          definitionId: card.id,
+        },
+      },
     };
     const xpGained = recordAnswer(result, difficulty);
     if (correct) {

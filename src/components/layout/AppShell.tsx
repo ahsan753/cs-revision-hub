@@ -1,7 +1,17 @@
-import { BookOpen, Flame, Gauge, Home, Settings, Trophy } from "lucide-react";
+import {
+  BookOpen,
+  Flame,
+  Gauge,
+  Home,
+  LogIn,
+  Settings,
+  Trophy,
+  UserCircle,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { useAuth } from "../../auth/useAuth";
 import { CelebrationLayer } from "../feedback/CelebrationLayer";
 import { Onboarding } from "../feedback/Onboarding";
 import { XpFloatProvider } from "../feedback/XpFloatProvider";
@@ -13,15 +23,20 @@ import { RankEmblem } from "../ui/RankEmblem";
 const navItems = [
   { to: "/", label: "Home", icon: Home },
   { to: "/progress", label: "Progress", icon: Gauge },
+  { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppShell() {
   const { xp, level, streak } = useProgressStore();
+  const { user, profile, rankedProgress } = useAuth();
   const settings = useProgressStore((state) => state.settings);
   const reducedMotion = useReducedMotion();
   const [pulseStreak, setPulseStreak] = useState(false);
-  const rank = getRankForLevel(level);
+  const displayedXp = rankedProgress?.xp ?? xp;
+  const displayedLevel = rankedProgress?.level ?? level;
+  const displayedStreak = rankedProgress?.streak ?? streak;
+  const rank = getRankForLevel(displayedLevel);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
@@ -81,11 +96,12 @@ export function AppShell() {
                 className="hidden items-center gap-1 sm:inline-flex"
                 data-xp-counter
               >
-                <Trophy className="text-amber-500" size={18} /> XP {xp}
+                <Trophy className="text-amber-500" size={18} /> XP{" "}
+                {displayedXp}
               </span>
               <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 text-ink">
                 <RankEmblem rank={rank} size="xs" />
-                <span className="whitespace-nowrap">Level {level}</span>
+                <span className="whitespace-nowrap">Level {displayedLevel}</span>
                 <span className="hidden max-w-[9rem] truncate text-muted lg:inline">
                   {rank.name}
                 </span>
@@ -102,8 +118,16 @@ export function AppShell() {
                 >
                   <Flame className="text-orange-500" size={18} />
                 </motion.span>{" "}
-                {streak} day streak
+                {displayedStreak} day streak
               </span>
+              <NavLink
+                to={user ? "/account" : "/login"}
+                className="grid h-10 w-10 place-items-center rounded-lg bg-slate-50 text-slate-600 hover:bg-indigo-50 hover:text-primary"
+                aria-label={user ? "Account" : "Sign in"}
+                title={profile?.display_name ?? user?.email ?? "Sign in"}
+              >
+                {user ? <UserCircle size={20} /> : <LogIn size={20} />}
+              </NavLink>
             </div>
           </div>
         </header>
@@ -112,7 +136,7 @@ export function AppShell() {
           <Outlet />
         </main>
 
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-line bg-white md:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-white md:hidden">
           {navItems.map((item) => (
             <NavLink
               key={item.to}

@@ -9,6 +9,8 @@ import { useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
+import type { ConversionOperand } from "../../ranked/rankedTypes";
+import { conversionRankedItemId } from "../../shared/answerCheck";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
@@ -29,6 +31,7 @@ interface Problem {
   answer: string;
   accept: string[];
   working: string[];
+  operands: ConversionOperand;
 }
 
 const modes: { id: Mode; label: string }[] = [
@@ -106,6 +109,15 @@ export function ConversionTrainerPage() {
       correct,
       activity: "convert" as const,
       timestamp: Date.now(),
+      ranked: {
+        rankedItemId: conversionRankedItemId(mode, problem.operands),
+        submitted: {
+          kind: "conversion" as const,
+          mode,
+          operands: problem.operands,
+          submittedAnswer: answer,
+        },
+      },
     };
     const xpGained = recordAnswer(answerResult, 2);
     if (xpGained > 0) triggerXpFloat(xpGained, anchorEl);
@@ -253,6 +265,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert denary ${value} to 8-bit binary.`,
       answer,
       accept: [answer, answer.replace(/\s/g, "")],
+      operands: { kind: "value", value },
       working: [
         `${value} = ${placeValues(value).join(" + ")}`,
         `8-bit binary = ${answer}`,
@@ -267,6 +280,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert binary ${binary} to denary.`,
       answer: String(value),
       accept: [String(value)],
+      operands: { kind: "value", value },
       working: [
         `${binary} = ${placeValues(value).join(" + ")}`,
         `Denary = ${value}`,
@@ -281,6 +295,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert denary ${value} to hexadecimal.`,
       answer,
       accept: [answer],
+      operands: { kind: "value", value },
       working: [
         `${value} ÷ 16 = ${Math.floor(value / 16)} remainder ${value % 16}`,
         `Hex = ${answer}`,
@@ -295,6 +310,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Convert hexadecimal ${hex} to denary.`,
       answer: String(value),
       accept: [String(value)],
+      operands: { kind: "value", value },
       working: [
         `${hex[0]} x 16 + ${hex[1]} = ${parseInt(hex[0], 16) * 16} + ${parseInt(hex[1], 16)}`,
         `Denary = ${value}`,
@@ -322,6 +338,7 @@ function generateProblem(mode: Mode): Problem {
             `${compactResult} with overflow`,
           ]
         : [storedResult, compactResult],
+      operands: { kind: "binary-add", left: a, right: b },
       working: [
         `${a} + ${b} = ${total}`,
         `8-bit stored result = ${storedResult}`,
@@ -338,6 +355,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Apply a logical ${left ? "left" : "right"} shift of one place to ${toBinary8(value)}.`,
       answer: toBinary8(result),
       accept: [toBinary8(result), toBinary8(result).replace(/\s/g, "")],
+      operands: { kind: "shift", value, direction: left ? "left" : "right" },
       working: [
         left ? "Left shift multiplies by 2." : "Right shift divides by 2.",
         `${value} becomes ${result}`,
@@ -353,6 +371,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Represent ${value} as 8-bit two's complement.`,
       answer: toBinary8(stored),
       accept: [toBinary8(stored), toBinary8(stored).replace(/\s/g, "")],
+      operands: { kind: "value", value },
       working:
         value < 0
           ? [`256 + (${value}) = ${stored}`, `Binary = ${toBinary8(stored)}`]
@@ -374,6 +393,7 @@ function generateProblem(mode: Mode): Problem {
       prompt: `Calculate the file size in KiB for a ${width} x ${height} bitmap image with ${depth}-bit colour depth.`,
       answer: `${kib} KiB`,
       accept: [String(kib), `${kib} KiB`, `${kib} kib`],
+      operands: { kind: "image", width, height, depth },
       working: [
         `${width} x ${height} x ${depth} bits`,
         `÷ 8 = ${bytes} bytes`,
@@ -391,6 +411,7 @@ function generateProblem(mode: Mode): Problem {
     prompt: `Calculate the file size in KiB for ${seconds}s sound at ${rate} Hz and ${resolution}-bit sample resolution.`,
     answer: `${kib} KiB`,
     accept: [String(kib), `${kib} KiB`, `${kib} kib`],
+    operands: { kind: "sound", seconds, sampleRate: rate, resolution },
     working: [
       `${rate} x ${resolution} x ${seconds} bits`,
       `÷ 8 = ${bytes} bytes`,

@@ -158,6 +158,18 @@ export function MemoryGamePage() {
         correct,
         activity: "memory" as const,
         timestamp: Date.now(),
+        ranked: first
+          ? {
+              rankedItemId: second.pairId,
+              submitted: {
+                kind: "memory" as const,
+                firstPairId: first.pairId,
+                secondPairId: second.pairId,
+                firstKind: first.kind,
+                secondKind: second.kind,
+              },
+            }
+          : undefined,
       };
       const xpGained = recordAnswer(result, difficulty);
       if (correct) {

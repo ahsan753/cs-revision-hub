@@ -9,11 +9,16 @@
     "build:github": "VITE_BASE_PATH=/cs-revision-hub/ npm run build",
     "preview:github": "VITE_BASE_PATH=/cs-revision-hub/ vite preview",
     "preview": "vite preview",
+    "seed:content": "node scripts/seed-content-items.mjs",
+    "supabase:db:push": "npm run seed:content && supabase db push",
+    "supabase:functions:deploy": "supabase functions deploy record-ranked-answer delete-account send-test-email --use-api",
+    "supabase:advisors": "supabase db advisors --linked --fail-on none",
     "lint": "eslint .",
     "format": "prettier --check .",
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.0.0",
     "lucide-react": "^0.468.0",

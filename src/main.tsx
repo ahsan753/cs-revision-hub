@@ -3,10 +3,13 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 import "./styles/index.css";
 import { router } from "./router";
+import { AuthProvider } from "./auth/AuthProvider";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <RouterProvider router={router} future={{ v7_startTransition: true }} />
+    <AuthProvider>
+      <RouterProvider router={router} future={{ v7_startTransition: true }} />
+    </AuthProvider>
   </React.StrictMode>,
 );
 
