@@ -30,7 +30,7 @@ export function LoginPage() {
   return (
     <AuthSurface
       title="Sign in"
-      description="Use your school account to record ranked XP and join leaderboards."
+      description="Use your teacher-issued login to record ranked XP and join leaderboards."
     >
       {!configured ? <SupabaseSetupNotice /> : null}
       <form className="space-y-4" onSubmit={submit}>
@@ -55,9 +55,9 @@ export function LoginPage() {
         </Button>
       </form>
       <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold">
-        <Link className="text-primary hover:underline" to="/signup">
-          Create account
-        </Link>
+        <p className="w-full rounded-lg bg-slate-50 p-3 text-muted">
+          Need a login? Ask your teacher for your username and password.
+        </p>
         <button
           className="text-muted hover:text-primary"
           disabled={!configured || !email}
@@ -85,61 +85,20 @@ export function LoginPage() {
 }
 
 export function SignupPage() {
-  const { configured, signUp } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      await signUp(email, password);
-      setMessage(
-        "Account created. Check your school email, including junk or spam, for the verification link.",
-      );
-    } catch (error) {
-      setMessage(authErrorMessage(error, "Signup failed."));
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <AuthSurface
-      title="Create account"
-      description="Ranked XP starts from zero and only online checked answers count."
+      title="Student logins are teacher-created"
+      description="Ask your teacher for your CS Revision Hub username and password."
     >
-      {!configured ? <SupabaseSetupNotice /> : null}
-      <form className="space-y-4" onSubmit={submit}>
-        <TextField
-          label="School email"
-          type="email"
-          value={email}
-          onChange={setEmail}
-          autoComplete="email"
-          placeholder="name@student.orbital.education"
-        />
-        <TextField
-          label="Password"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          autoComplete="new-password"
-        />
-        {message ? <p className="text-sm font-bold text-primary">{message}</p> : null}
-        <Button disabled={!configured || busy || !email || password.length < 8}>
-          {busy ? "Creating..." : "Create account"}
-        </Button>
-      </form>
-      <p className="mt-5 text-sm font-bold text-muted">
-        Already have an account?{" "}
-        <Link className="text-primary hover:underline" to="/login">
-          Sign in
+      <div className="space-y-4">
+        <p className="rounded-lg bg-slate-50 p-4 text-sm font-bold leading-6 text-muted">
+          Student accounts are set up by the teacher. If you do not know your
+          login, ask your teacher to create one or reset your password.
+        </p>
+        <Link to="/login">
+          <Button>Back to sign in</Button>
         </Link>
-      </p>
+      </div>
     </AuthSurface>
   );
 }

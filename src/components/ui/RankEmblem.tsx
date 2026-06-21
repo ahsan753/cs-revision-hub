@@ -58,11 +58,17 @@ const tierStyles: Record<
 };
 
 const emblemSizes = {
-  xs: "h-8 w-8 p-0.5",
+  xs: "h-10 w-10 p-0.5",
   sm: "h-14 w-14 p-1",
   md: "h-20 w-20 p-1.5",
   lg: "h-28 w-28 p-2",
 };
+
+function assetUrl(path: string) {
+  const base = import.meta.env.BASE_URL || "/";
+  const normalisedBase = base.endsWith("/") ? base : `${base}/`;
+  return `${normalisedBase}${path.replace(/^\/+/, "")}`;
+}
 
 export function RankEmblem({
   rank,
@@ -77,7 +83,7 @@ export function RankEmblem({
 }) {
   const reducedMotion = useReducedMotion();
   const prestige = rank.tier === "prestige" && !locked;
-  const imageSrc = `${import.meta.env.BASE_URL}${rank.emblem}`;
+  const imageSrc = assetUrl(rank.emblem);
 
   return (
     <motion.div
