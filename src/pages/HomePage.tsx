@@ -25,8 +25,11 @@ import { ProgressRing } from "../components/ui/ProgressRing";
 import { getUnitMastery } from "../store/mastery";
 import { getDailySuggestions } from "../store/dailyGoals";
 import { useProgressStore } from "../store/progressStore";
+import { useAuth } from "../auth/useAuth";
+import { chooseDisplayProgress } from "../components/layout/displayProgress";
 
 export function HomePage() {
+  const { rankedProgress } = useAuth();
   const progress = useProgressStore((state) => state.itemProgress);
   const daily = useProgressStore((state) => state.dailyProgress);
   const refreshDailyProgress = useProgressStore(
@@ -47,6 +50,10 @@ export function HomePage() {
     Math.round((dailyAnswered / Math.max(1, dailyGoal)) * 100),
   );
   const dailyComplete = daily.completed || remainingDailyItems === 0;
+  const displayedProgress = chooseDisplayProgress({
+    local: { xp, level, streak },
+    ranked: rankedProgress,
+  });
 
   useEffect(() => {
     refreshDailyProgress();
@@ -70,14 +77,18 @@ export function HomePage() {
               </p>
               <div className="mt-4 flex flex-wrap gap-2 text-sm font-bold">
                 <span className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-3 py-2 text-orange-700">
-                  <Flame size={17} /> {streak} day streak
+                  <Flame size={17} /> {displayedProgress.streak} day streak
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-lg bg-amber-50 px-3 py-2 text-amber-700">
-                  <Trophy size={17} /> {xp} XP
+                  <Trophy size={17} /> {displayedProgress.xp} XP
                 </span>
               </div>
               <div className="mt-4 max-w-xl">
-                <LevelRankCard level={level} xp={xp} variant="inline" />
+                <LevelRankCard
+                  level={displayedProgress.level}
+                  xp={displayedProgress.xp}
+                  variant="inline"
+                />
               </div>
             </div>
           </div>

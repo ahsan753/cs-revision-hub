@@ -52,6 +52,7 @@ export interface RankedProgressTotals {
 export interface LeaderboardRow {
   rank: number;
   display_name: string;
+  class_name?: string | null;
   level: number;
   xp: number;
   streak: number;

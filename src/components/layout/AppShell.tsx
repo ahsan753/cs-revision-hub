@@ -3,6 +3,7 @@ import {
   Flame,
   Gauge,
   Home,
+  KeyRound,
   LogIn,
   ShieldCheck,
   Settings,
@@ -31,7 +32,7 @@ const baseNavItems = [
 
 export function AppShell() {
   const { xp, level, streak } = useProgressStore();
-  const { user, profile, rankedProgress } = useAuth();
+  const { user, profile, rankedProgress, isVerified } = useAuth();
   const settings = useProgressStore((state) => state.settings);
   const reducedMotion = useReducedMotion();
   const [pulseStreak, setPulseStreak] = useState(false);
@@ -52,6 +53,8 @@ export function AppShell() {
       : baseNavItems;
   const mobileColumns =
     profile?.role === "teacher" ? "grid-cols-5" : "grid-cols-4";
+  const showClassJoinNotice =
+    user && isVerified && profile?.role === "student" && !profile.class_id;
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
@@ -111,12 +114,13 @@ export function AppShell() {
                 className="hidden items-center gap-1 sm:inline-flex"
                 data-xp-counter
               >
-                <Trophy className="text-amber-500" size={18} /> XP{" "}
-                {displayedXp}
+                <Trophy className="text-amber-500" size={18} /> XP {displayedXp}
               </span>
               <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 text-ink">
                 <RankEmblem rank={rank} size="xs" />
-                <span className="whitespace-nowrap">Level {displayedLevel}</span>
+                <span className="whitespace-nowrap">
+                  Level {displayedLevel}
+                </span>
                 <span className="hidden max-w-[9rem] truncate text-muted lg:inline">
                   {rank.name}
                 </span>
@@ -146,6 +150,23 @@ export function AppShell() {
             </div>
           </div>
         </header>
+
+        {showClassJoinNotice ? (
+          <div className="border-b border-amber-200 bg-amber-50">
+            <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 text-sm font-bold text-amber-900 md:flex-row md:items-center md:justify-between md:px-6">
+              <span className="inline-flex items-center gap-2">
+                <KeyRound size={17} />
+                Enter your teacher's class code to join your class.
+              </span>
+              <NavLink
+                to="/settings"
+                className="inline-flex min-h-10 w-fit items-center rounded-lg bg-white px-3 text-sm font-extrabold text-amber-900 shadow-sm hover:bg-amber-100"
+              >
+                Open settings
+              </NavLink>
+            </div>
+          </div>
+        ) : null}
 
         <main className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-7">
           <Outlet />

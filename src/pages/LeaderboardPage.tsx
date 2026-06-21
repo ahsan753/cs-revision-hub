@@ -1,5 +1,11 @@
 import { RefreshCw, Trophy } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { Button } from "../components/ui/Button";
 import { RankEmblem } from "../components/ui/RankEmblem";
 import { getRankForLevel } from "../store/rankSystem";
@@ -77,7 +83,11 @@ export function LeaderboardPage() {
             Only server-verified ranked XP appears here.
           </p>
         </div>
-        <Button variant="secondary" onClick={() => void refresh()} disabled={loading}>
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          disabled={loading}
+        >
           <RefreshCw size={17} /> Refresh
         </Button>
       </div>
@@ -85,7 +95,9 @@ export function LeaderboardPage() {
       {!isVerified ? (
         <Notice>Verify your email before using ranked leaderboards.</Notice>
       ) : !profile?.class_id ? (
-        <Notice>Join a class from your account page to unlock class and year boards.</Notice>
+        <Notice>
+          Join a class from Settings to unlock class and year boards.
+        </Notice>
       ) : null}
 
       {message ? <Notice>{message}</Notice> : null}
@@ -115,13 +127,22 @@ export function LeaderboardPage() {
           dailyStats={dailyStats}
         />
       ) : (
-        <LeaderboardTable rows={tab === "class" ? classRows : yearRows} />
+        <LeaderboardTable
+          rows={tab === "class" ? classRows : yearRows}
+          showClassName={tab === "year"}
+        />
       )}
     </div>
   );
 }
 
-function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
+function LeaderboardTable({
+  rows,
+  showClassName,
+}: {
+  rows: LeaderboardRow[];
+  showClassName: boolean;
+}) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-line bg-white p-6 text-sm font-bold text-muted shadow-soft">
@@ -132,7 +153,7 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
 
   return (
     <section className="overflow-hidden rounded-lg border border-line bg-white shadow-soft">
-      <div className="grid grid-cols-[70px_1fr_90px_90px] border-b border-line bg-slate-50 px-4 py-3 text-xs font-extrabold uppercase text-muted md:grid-cols-[80px_1fr_160px_120px_120px]">
+      <div className="grid grid-cols-[70px_1fr_90px_90px] border-b border-line bg-slate-50 px-4 py-3 text-xs font-extrabold uppercase text-muted md:grid-cols-[80px_1fr_190px_120px_120px]">
         <span>Rank</span>
         <span>Name</span>
         <span className="hidden md:block">Level</span>
@@ -144,7 +165,7 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
         return (
           <div
             key={`${row.rank}-${row.display_name}`}
-            className={`grid grid-cols-[70px_1fr_90px_90px] items-center px-4 py-3 text-sm font-bold md:grid-cols-[80px_1fr_160px_120px_120px] ${
+            className={`grid grid-cols-[70px_1fr_90px_90px] items-center px-4 py-3 text-sm font-bold md:grid-cols-[80px_1fr_190px_120px_120px] ${
               row.is_me ? "bg-indigo-50 text-primary" : "border-t border-line"
             }`}
           >
@@ -152,9 +173,22 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
               <Trophy size={16} className="text-amber-500" />
               {row.rank}
             </span>
-            <span>{row.display_name}</span>
-            <span className="hidden items-center gap-2 md:inline-flex">
-              <RankEmblem rank={rank} size="xs" /> {row.level}
+            <span className="min-w-0">
+              <span className="block truncate">{row.display_name}</span>
+              {showClassName && row.class_name ? (
+                <span className="mt-1 block truncate text-xs text-muted">
+                  {row.class_name}
+                </span>
+              ) : null}
+            </span>
+            <span className="hidden min-w-0 items-center gap-2 md:inline-flex">
+              <RankEmblem rank={rank} size="xs" />
+              <span className="min-w-0">
+                <span className="block">Level {row.level}</span>
+                <span className="block truncate text-xs text-muted">
+                  {rank.name}
+                </span>
+              </span>
             </span>
             <span>{row.xp}</span>
             <span>{row.streak}</span>
@@ -182,16 +216,22 @@ function PersonalPanel({
   bestDay: number;
   dailyStats: DailyStat[];
 }) {
+  const rank = getRankForLevel(level);
+
   return (
     <div className="space-y-4">
       <section className="grid gap-4 md:grid-cols-4">
-        <PersonalStat label="Ranked XP" value={totalXp} />
-        <PersonalStat label="Level" value={level} />
+        <PersonalStat label="Leaderboard XP" value={totalXp} />
+        <PersonalStat
+          label="Leaderboard rank"
+          value={`Level ${level}`}
+          detail={rank.name}
+        />
         <PersonalStat label="This week" value={weekXp} />
         <PersonalStat label="Best day" value={bestDay} />
       </section>
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-extrabold">Ranked history</h2>
+        <h2 className="text-lg font-extrabold">Leaderboard history</h2>
         <p className="mt-1 text-sm font-bold text-muted">
           Current streak {streak}; best streak {bestStreak}.
         </p>
@@ -216,7 +256,7 @@ function PersonalPanel({
             ))
           ) : (
             <p className="rounded-lg bg-slate-50 p-4 text-sm font-bold text-muted">
-              No ranked days yet.
+              No leaderboard days yet.
             </p>
           )}
         </div>
@@ -225,11 +265,22 @@ function PersonalPanel({
   );
 }
 
-function PersonalStat({ label, value }: { label: string; value: string | number }) {
+function PersonalStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
   return (
     <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
       <p className="text-sm font-bold text-muted">{label}</p>
       <p className="mt-2 text-3xl font-extrabold text-primary">{value}</p>
+      {detail ? (
+        <p className="mt-1 text-sm font-bold text-muted">{detail}</p>
+      ) : null}
     </div>
   );
 }

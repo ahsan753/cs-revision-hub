@@ -41,4 +41,13 @@ describe("chooseDisplayProgress", () => {
       }),
     ).toEqual({ xp: 120, level: 2, streak: 4 });
   });
+
+  it("derives the displayed level from the displayed XP", () => {
+    expect(
+      chooseDisplayProgress({
+        local: { xp: 160, level: 1, streak: 1 },
+        ranked: rankedProgress({ xp: 0, level: 1 }),
+      }),
+    ).toEqual({ xp: 160, level: 2, streak: 1 });
+  });
 });

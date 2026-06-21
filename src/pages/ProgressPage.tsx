@@ -4,6 +4,8 @@ import { BadgeShelf } from "../components/ui/BadgeShelf";
 import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { LevelRankCard, RankLadder } from "../components/ui/RankEmblem";
+import { useAuth } from "../auth/useAuth";
+import { chooseDisplayProgress } from "../components/layout/displayProgress";
 import { getSubtopicMastery, getUnitMastery } from "../store/mastery";
 import {
   getItemAccuracyPercent,
@@ -11,6 +13,7 @@ import {
 } from "../store/progressStore";
 
 export function ProgressPage() {
+  const { rankedProgress } = useAuth();
   const progress = useProgressStore((state) => state.itemProgress);
   const daily = useProgressStore((state) => state.dailyProgress);
   const dailyGoal = useProgressStore((state) => state.dailyGoal);
@@ -21,6 +24,7 @@ export function ProgressPage() {
   const history = useProgressStore((state) => state.history);
   const xp = useProgressStore((state) => state.xp);
   const level = useProgressStore((state) => state.level);
+  const streak = useProgressStore((state) => state.streak);
   const dailyAnswered = Math.min(dailyGoal, daily.answered);
   const correctRate = history.length
     ? Math.round(
@@ -28,6 +32,10 @@ export function ProgressPage() {
       )
     : 0;
   const weakSpots = getWeakSpots(progress).slice(0, 8);
+  const displayedProgress = chooseDisplayProgress({
+    local: { xp, level, streak },
+    ranked: rankedProgress,
+  });
 
   useEffect(() => {
     refreshDailyProgress();
@@ -55,15 +63,19 @@ export function ProgressPage() {
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <div className="mb-4 grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
           <div>
-            <h2 className="text-lg font-extrabold">League ranks</h2>
+            <h2 className="text-lg font-extrabold">Rank ladder</h2>
             <p className="mt-1 text-sm text-muted">
-              Level badges are based on XP level and sit separately from
-              achievement badges.
+              Each XP level has one rank name. Tier colours group nearby ranks
+              together.
             </p>
           </div>
-          <LevelRankCard level={level} xp={xp} variant="inline" />
+          <LevelRankCard
+            level={displayedProgress.level}
+            xp={displayedProgress.xp}
+            variant="inline"
+          />
         </div>
-        <RankLadder currentLevel={level} />
+        <RankLadder currentLevel={displayedProgress.level} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">

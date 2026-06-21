@@ -21,35 +21,35 @@ const tierStyles: Record<
   }
 > = {
   bronze: {
-    label: "Bronze Tier",
+    label: "Bronze tier",
     ring: "from-orange-300 via-amber-600 to-stone-800",
     chip: "bg-orange-100 text-orange-800",
     progress: "bg-orange-500",
     surface: "rank-card-surface-bronze",
   },
   silver: {
-    label: "Silver Tier",
+    label: "Silver tier",
     ring: "from-slate-100 via-slate-400 to-slate-800",
     chip: "bg-slate-100 text-slate-600",
     progress: "bg-slate-500",
     surface: "rank-card-surface-silver",
   },
   gold: {
-    label: "Gold Tier",
+    label: "Gold tier",
     ring: "from-yellow-200 via-amber-400 to-yellow-700",
     chip: "bg-amber-100 text-amber-800",
     progress: "bg-amber-400",
     surface: "rank-card-surface-gold",
   },
   platinum: {
-    label: "Platinum Tier",
+    label: "Platinum tier",
     ring: "from-cyan-200 via-violet-300 to-indigo-700",
     chip: "bg-cyan-100 text-cyan-800",
     progress: "bg-cyan-500",
     surface: "rank-card-surface-platinum",
   },
   prestige: {
-    label: "Prestige Tier",
+    label: "Prestige tier",
     ring: "from-fuchsia-300 via-indigo-400 to-amber-300",
     chip: "bg-violet-100 text-violet-800",
     progress: "bg-violet-500",
@@ -151,13 +151,13 @@ export function LevelRankCard({
         <RankEmblem rank={rank} size={variant === "card" ? "lg" : "md"} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-md bg-indigo-50 px-2 py-1 text-[0.7rem] font-black uppercase leading-none text-primary">
+              Level {level}
+            </span>
             <span
-              className={`rounded-md px-2 py-1 text-[0.7rem] font-black uppercase leading-none ${tier.chip}`}
+              className={`rounded-md px-2 py-1 text-xs font-extrabold leading-none ${tier.chip}`}
             >
               {tier.label}
-            </span>
-            <span className="text-xs font-extrabold text-muted">
-              Level {level}
             </span>
           </div>
           <h2 className="mt-2 text-xl font-extrabold leading-tight text-ink">
@@ -173,7 +173,7 @@ export function LevelRankCard({
         <div className="flex justify-between gap-3 text-xs font-extrabold text-muted">
           <span>{Math.min(100, Math.max(0, levelPercent))}% through level</span>
           <span>
-            {remainingXp} XP to Level {level + 1}
+            {remainingXp} XP to level {level + 1}
           </span>
         </div>
         <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/70">
@@ -224,7 +224,7 @@ export function RankLadder({ currentLevel }: { currentLevel: number }) {
                     Level {rank.level}
                   </span>
                   <span
-                    className={`rounded-md px-2 py-1 text-[0.65rem] font-black uppercase leading-none ${tier.chip}`}
+                    className={`rounded-md px-2 py-1 text-[0.65rem] font-black leading-none ${tier.chip}`}
                   >
                     {tier.label}
                   </span>

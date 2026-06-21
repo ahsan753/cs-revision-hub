@@ -1,8 +1,11 @@
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
 import { SupabaseSetupNotice } from "./LoginPage";
+import { chooseDisplayProgress } from "../components/layout/displayProgress";
+import { useProgressStore } from "../store/progressStore";
+import { getRankForLevel } from "../store/rankSystem";
 
 export function AccountPage() {
   const {
@@ -11,29 +14,21 @@ export function AccountPage() {
     profile,
     rankedProgress,
     isVerified,
-    joinClass,
     updateLeaderboardOptIn,
     deleteAccount,
     signOut,
   } = useAuth();
-  const [joinCode, setJoinCode] = useState("");
+  const localXp = useProgressStore((state) => state.xp);
+  const localLevel = useProgressStore((state) => state.level);
+  const localStreak = useProgressStore((state) => state.streak);
   const [message, setMessage] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const join = async (event: FormEvent) => {
-    event.preventDefault();
-    setBusy(true);
-    setMessage(null);
-    try {
-      const className = await joinClass(joinCode);
-      setJoinCode("");
-      setMessage(className ? `Joined ${className}.` : "Class joined.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not join class.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const showClassNotice =
+    isVerified && profile?.role === "student" && !profile.class_id;
+  const displayedProgress = chooseDisplayProgress({
+    local: { xp: localXp, level: localLevel, streak: localStreak },
+    ranked: rankedProgress,
+  });
+  const displayedRank = getRankForLevel(displayedProgress.level);
 
   if (!configured) {
     return (
@@ -48,26 +43,86 @@ export function AccountPage() {
       <div>
         <h1 className="text-3xl font-extrabold">Account</h1>
         <p className="mt-2 text-sm font-bold text-muted">
-          Ranked XP is separate from local offline practice.
+          Your app rank follows the highest XP total available. Leaderboard XP
+          only counts server-verified answers.
         </p>
       </div>
 
       <section className="grid gap-4 md:grid-cols-3">
-        <AccountStat label="Ranked XP" value={rankedProgress?.xp ?? 0} />
-        <AccountStat label="Ranked level" value={rankedProgress?.level ?? 1} />
-        <AccountStat label="Best streak" value={rankedProgress?.best_streak ?? 0} />
+        <AccountStat
+          label="App rank"
+          value={`Level ${displayedProgress.level}`}
+          detail={displayedRank.name}
+        />
+        <AccountStat label="App XP" value={displayedProgress.xp} />
+        <AccountStat label="Leaderboard XP" value={rankedProgress?.xp ?? 0} />
       </section>
+
+      {message ? (
+        <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 text-sm font-bold text-primary">
+          {message}
+        </div>
+      ) : null}
+
+      {showClassNotice ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-5 shadow-soft">
+          <h2 className="text-lg font-extrabold text-amber-900">
+            Join your class
+          </h2>
+          <p className="mt-2 text-sm font-bold leading-6 text-amber-800">
+            Enter your teacher's class code in Settings to appear on the right
+            class and global leaderboards.
+          </p>
+          <div className="mt-4">
+            <Link to="/settings">
+              <Button>Open settings</Button>
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-extrabold">Profile</h2>
         <div className="mt-4 grid gap-3 text-sm font-bold md:grid-cols-2">
-          <p>Email: <span className="text-muted">{user?.email}</span></p>
-          <p>Status: <span className="text-muted">{isVerified ? "Verified" : "Check email"}</span></p>
-          <p>Role: <span className="text-muted">{profile?.role ?? "Loading"}</span></p>
-          <p>Private name: <span className="text-muted">{profile?.full_name ?? "Pending"}</span></p>
-          <p>Display name: <span className="text-muted">{profile?.display_name ?? profile?.full_name?.split(" ")[0] ?? "Pending"}</span></p>
-          <p>Class: <span className="text-muted">{profile?.class_id ? "Joined" : "Not joined"}</span></p>
-          <p>Year group: <span className="text-muted">{profile?.year_group ?? "Not set"}</span></p>
+          <p>
+            Email: <span className="text-muted">{user?.email}</span>
+          </p>
+          <p>
+            Status:{" "}
+            <span className="text-muted">
+              {isVerified ? "Verified" : "Check email"}
+            </span>
+          </p>
+          <p>
+            Role:{" "}
+            <span className="text-muted">{profile?.role ?? "Loading"}</span>
+          </p>
+          <p>
+            Private name:{" "}
+            <span className="text-muted">
+              {profile?.full_name ?? "Pending"}
+            </span>
+          </p>
+          <p>
+            Display name:{" "}
+            <span className="text-muted">
+              {profile?.display_name ??
+                profile?.full_name?.split(" ")[0] ??
+                "Pending"}
+            </span>
+          </p>
+          <p>
+            Class:{" "}
+            <span className="text-muted">
+              {profile?.class_id ? "Joined" : "Not joined"}
+            </span>
+          </p>
+          <p>
+            Year group:{" "}
+            <span className="text-muted">
+              {profile?.year_group ?? "Not set"}
+            </span>
+          </p>
         </div>
         {!isVerified ? (
           <p className="mt-4 rounded-lg bg-amber-50 p-3 text-sm font-bold text-amber-800">
@@ -91,22 +146,6 @@ export function AccountPage() {
       ) : null}
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-        <h2 className="text-lg font-extrabold">Join class</h2>
-        <form className="mt-4 flex flex-col gap-3 sm:flex-row" onSubmit={join}>
-          <input
-            className="min-h-11 flex-1 rounded-lg border border-line px-3 text-sm font-bold uppercase outline-none focus:border-primary"
-            value={joinCode}
-            onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
-            placeholder="CS-7QK2"
-          />
-          <Button disabled={!isVerified || busy || !joinCode.trim()}>
-            Join
-          </Button>
-        </form>
-        {message ? <p className="mt-3 text-sm font-bold text-primary">{message}</p> : null}
-      </section>
-
-      <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-extrabold">Privacy controls</h2>
         <label className="mt-4 flex items-center gap-3 text-sm font-bold">
           <input
@@ -114,7 +153,9 @@ export function AccountPage() {
             checked={profile?.leaderboard_opt_in ?? true}
             onChange={(event) => {
               void updateLeaderboardOptIn(event.target.checked).catch((error) =>
-                setMessage(error instanceof Error ? error.message : "Update failed."),
+                setMessage(
+                  error instanceof Error ? error.message : "Update failed.",
+                ),
               );
             }}
           />
@@ -144,11 +185,22 @@ export function AccountPage() {
   );
 }
 
-function AccountStat({ label, value }: { label: string; value: string | number }) {
+function AccountStat({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+}) {
   return (
     <div className="rounded-lg border border-line bg-white p-5 shadow-soft">
       <p className="text-sm font-bold text-muted">{label}</p>
       <p className="mt-2 text-3xl font-extrabold text-primary">{value}</p>
+      {detail ? (
+        <p className="mt-1 text-sm font-bold text-muted">{detail}</p>
+      ) : null}
     </div>
   );
 }

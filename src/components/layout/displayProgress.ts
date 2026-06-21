@@ -1,4 +1,5 @@
 import type { RankedProgressTotals } from "../../ranked/rankedTypes";
+import { levelFromXp } from "../../store/progressStore";
 
 export function chooseDisplayProgress({
   local,
@@ -7,13 +8,11 @@ export function chooseDisplayProgress({
   local: { xp: number; level: number; streak: number };
   ranked: RankedProgressTotals | null;
 }) {
-  if (!ranked || local.xp >= ranked.xp) {
-    return local;
-  }
+  const selected = !ranked || local.xp >= ranked.xp ? local : ranked;
 
   return {
-    xp: ranked.xp,
-    level: ranked.level,
-    streak: ranked.streak,
+    xp: selected.xp,
+    level: levelFromXp(selected.xp),
+    streak: selected.streak,
   };
 }
