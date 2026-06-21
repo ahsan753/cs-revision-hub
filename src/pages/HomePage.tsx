@@ -19,11 +19,12 @@ import {
 } from "../content/contentIndex";
 import { BadgeShelf } from "../components/ui/BadgeShelf";
 import { Button } from "../components/ui/Button";
+import { LevelRankCard } from "../components/ui/RankEmblem";
 import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
 import { getUnitMastery } from "../store/mastery";
 import { getDailySuggestions } from "../store/dailyGoals";
-import { useProgressStore, xpForLevel } from "../store/progressStore";
+import { useProgressStore } from "../store/progressStore";
 
 export function HomePage() {
   const progress = useProgressStore((state) => state.itemProgress);
@@ -37,11 +38,6 @@ export function HomePage() {
   const dailyGoal = useProgressStore((state) => state.dailyGoal);
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
   const name = useProgressStore((state) => state.name);
-  const currentLevelXp = xpForLevel(level);
-  const nextLevelXp = xpForLevel(level + 1);
-  const levelPercent = Math.round(
-    ((xp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp)) * 100,
-  );
   const dailySuggestions = getDailySuggestions(progress);
   const completedDailyTaskIds = new Set(daily.completedTasks ?? []);
   const dailyAnswered = Math.min(dailyGoal, daily.answered);
@@ -80,21 +76,8 @@ export function HomePage() {
                   <Trophy size={17} /> {xp} XP
                 </span>
               </div>
-              <div className="mt-4 max-w-sm">
-                <div className="flex justify-between text-xs font-extrabold text-muted">
-                  <span>Level {level}</span>
-                  <span>
-                    {Math.max(0, nextLevelXp - xp)} XP to Level {level + 1}
-                  </span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className="h-full rounded-full bg-amber-400"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, levelPercent))}%`,
-                    }}
-                  />
-                </div>
+              <div className="mt-4 max-w-xl">
+                <LevelRankCard level={level} xp={xp} variant="inline" />
               </div>
             </div>
           </div>

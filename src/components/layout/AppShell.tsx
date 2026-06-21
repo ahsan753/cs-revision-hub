@@ -1,12 +1,4 @@
-import {
-  BookOpen,
-  Flame,
-  Gauge,
-  Home,
-  Layers,
-  Settings,
-  Trophy,
-} from "lucide-react";
+import { BookOpen, Flame, Gauge, Home, Settings, Trophy } from "lucide-react";
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
@@ -15,6 +7,8 @@ import { Onboarding } from "../feedback/Onboarding";
 import { XpFloatProvider } from "../feedback/XpFloatProvider";
 import { useReducedMotion } from "../../hooks/useReducedMotion";
 import { useProgressStore } from "../../store/progressStore";
+import { getRankForLevel } from "../../store/rankSystem";
+import { RankEmblem } from "../ui/RankEmblem";
 
 const navItems = [
   { to: "/", label: "Home", icon: Home },
@@ -27,6 +21,7 @@ export function AppShell() {
   const settings = useProgressStore((state) => state.settings);
   const reducedMotion = useReducedMotion();
   const [pulseStreak, setPulseStreak] = useState(false);
+  const rank = getRankForLevel(level);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
@@ -88,8 +83,12 @@ export function AppShell() {
               >
                 <Trophy className="text-amber-500" size={18} /> XP {xp}
               </span>
-              <span className="inline-flex items-center gap-1">
-                <Layers className="text-violet-600" size={18} /> Level {level}
+              <span className="inline-flex min-w-0 items-center gap-2 rounded-lg bg-slate-50 px-2 py-1 text-ink">
+                <RankEmblem rank={rank} size="xs" />
+                <span className="whitespace-nowrap">Level {level}</span>
+                <span className="hidden max-w-[9rem] truncate text-muted lg:inline">
+                  {rank.name}
+                </span>
               </span>
               <span className="hidden items-center gap-1 sm:inline-flex">
                 <motion.span

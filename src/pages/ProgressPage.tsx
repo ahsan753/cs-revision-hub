@@ -3,6 +3,7 @@ import { contentIndex } from "../content/contentIndex";
 import { BadgeShelf } from "../components/ui/BadgeShelf";
 import { MasteryChip } from "../components/ui/MasteryChip";
 import { ProgressRing } from "../components/ui/ProgressRing";
+import { LevelRankCard, RankLadder } from "../components/ui/RankEmblem";
 import { getSubtopicMastery, getUnitMastery } from "../store/mastery";
 import {
   getItemAccuracyPercent,
@@ -18,6 +19,8 @@ export function ProgressPage() {
   );
   const unlockedBadges = useProgressStore((state) => state.unlockedBadges);
   const history = useProgressStore((state) => state.history);
+  const xp = useProgressStore((state) => state.xp);
+  const level = useProgressStore((state) => state.level);
   const dailyAnswered = Math.min(dailyGoal, daily.answered);
   const correctRate = history.length
     ? Math.round(
@@ -47,6 +50,20 @@ export function ProgressPage() {
         />
         <StatCard label="Attempts recorded" value={history.length} />
         <StatCard label="Correct rate" value={`${correctRate}%`} />
+      </section>
+
+      <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+        <div className="mb-4 grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <h2 className="text-lg font-extrabold">League ranks</h2>
+            <p className="mt-1 text-sm text-muted">
+              Level badges are based on XP level and sit separately from
+              achievement badges.
+            </p>
+          </div>
+          <LevelRankCard level={level} xp={xp} variant="inline" />
+        </div>
+        <RankLadder currentLevel={level} />
       </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
