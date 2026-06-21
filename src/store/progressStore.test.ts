@@ -387,6 +387,22 @@ describe("item accuracy", () => {
 });
 
 describe("unit mastery regressions", () => {
+  it("counts one correct answer as partial mastery progress", () => {
+    const unit = contentIndex.units[0];
+    const ids = getItemIdsForUnit(unit);
+    const target = ids[0];
+    const mastery = getUnitMastery(unit, {
+      [target]: makeItemProgress(target, 1),
+    });
+
+    expect(mastery.known).toBe(0);
+    expect(mastery.earned).toBe(1);
+    expect(mastery.required).toBe(ids.length * 2);
+    expect(mastery.percent).toBe(
+      Math.round((1 / Math.max(1, ids.length * 2)) * 100),
+    );
+  });
+
   it("reports Unit 2 as 39 / 39 and 100% when all Unit 2 items are known", () => {
     const unit = contentIndex.unitsById.get("u2");
     expect(unit).toBeDefined();

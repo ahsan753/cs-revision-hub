@@ -18,7 +18,7 @@ import {
   parseScope,
 } from "../../content/contentIndex";
 import type { MCQ } from "../../data/contentTypes";
-import { getMasteryForItemIds } from "../../store/mastery";
+import { getMasteryCredit, getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
 import { isKnown, useProgressStore } from "../../store/progressStore";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
@@ -268,24 +268,31 @@ export function QuizPage() {
         </div>
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <span className="shrink-0 text-sm font-extrabold">
-            Mastered {liveCompletedIds.length} / {session.itemIds.length}
+            Mastery {mastery.earned} / {mastery.required}
           </span>
           <div
             className="flex min-w-0 flex-wrap gap-1"
-            aria-label={`${liveCompletedIds.length} of ${session.itemIds.length} target items mastered`}
+            aria-label={`${mastery.earned} of ${mastery.required} mastery points earned`}
           >
-            {session.itemIds.map((itemId) => (
-              <span
-                key={itemId}
-                className={`h-2 w-2 shrink-0 rounded-full ${
-                  liveCompleted.has(itemId)
-                    ? "bg-emerald-500"
-                    : current.id === itemId
-                      ? "bg-primary"
-                      : "bg-slate-300"
-                }`}
-              />
-            ))}
+            {session.itemIds.map((itemId) => {
+              const credit = liveCompleted.has(itemId)
+                ? 2
+                : getMasteryCredit(progress[itemId]);
+              return (
+                <span
+                  key={itemId}
+                  className={`h-2 w-2 shrink-0 rounded-full ${
+                    credit >= 2
+                      ? "bg-emerald-500"
+                      : credit === 1
+                        ? "bg-amber-400"
+                        : current.id === itemId
+                          ? "bg-primary"
+                          : "bg-slate-300"
+                  }`}
+                />
+              );
+            })}
           </div>
           <span className="shrink-0 text-xs font-bold text-muted">
             {session.queue.length} in loop
