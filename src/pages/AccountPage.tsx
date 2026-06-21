@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useAuth } from "../auth/useAuth";
 import { SupabaseSetupNotice } from "./LoginPage";
@@ -62,6 +63,7 @@ export function AccountPage() {
         <div className="mt-4 grid gap-3 text-sm font-bold md:grid-cols-2">
           <p>Email: <span className="text-muted">{user?.email}</span></p>
           <p>Status: <span className="text-muted">{isVerified ? "Verified" : "Check email"}</span></p>
+          <p>Role: <span className="text-muted">{profile?.role ?? "Loading"}</span></p>
           <p>Private name: <span className="text-muted">{profile?.full_name ?? "Pending"}</span></p>
           <p>Display name: <span className="text-muted">{profile?.display_name ?? "Teacher approval pending"}</span></p>
           <p>Class: <span className="text-muted">{profile?.class_id ? "Joined" : "Not joined"}</span></p>
@@ -73,6 +75,21 @@ export function AccountPage() {
           </p>
         ) : null}
       </section>
+
+      {profile?.role === "teacher" ? (
+        <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
+          <h2 className="text-lg font-extrabold">Teacher tools</h2>
+          <p className="mt-2 text-sm font-bold text-muted">
+            Create classes, share join codes, approve display names, and manage
+            your roster.
+          </p>
+          <div className="mt-4">
+            <Link to="/teacher">
+              <Button>Open teacher dashboard</Button>
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <h2 className="text-lg font-extrabold">Join class</h2>

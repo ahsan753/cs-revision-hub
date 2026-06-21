@@ -4,6 +4,7 @@ import {
   Gauge,
   Home,
   LogIn,
+  ShieldCheck,
   Settings,
   Trophy,
   UserCircle,
@@ -20,7 +21,7 @@ import { useProgressStore } from "../../store/progressStore";
 import { getRankForLevel } from "../../store/rankSystem";
 import { RankEmblem } from "../ui/RankEmblem";
 
-const navItems = [
+const baseNavItems = [
   { to: "/", label: "Home", icon: Home },
   { to: "/progress", label: "Progress", icon: Gauge },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
@@ -37,6 +38,15 @@ export function AppShell() {
   const displayedLevel = rankedProgress?.level ?? level;
   const displayedStreak = rankedProgress?.streak ?? streak;
   const rank = getRankForLevel(displayedLevel);
+  const navItems =
+    profile?.role === "teacher"
+      ? [
+          ...baseNavItems,
+          { to: "/teacher", label: "Teacher", icon: ShieldCheck },
+        ]
+      : baseNavItems;
+  const mobileColumns =
+    profile?.role === "teacher" ? "grid-cols-5" : "grid-cols-4";
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", settings.darkMode);
@@ -136,7 +146,9 @@ export function AppShell() {
           <Outlet />
         </main>
 
-        <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-white md:hidden">
+        <nav
+          className={`fixed inset-x-0 bottom-0 z-30 grid ${mobileColumns} border-t border-line bg-white md:hidden`}
+        >
           {navItems.map((item) => (
             <NavLink
               key={item.to}
