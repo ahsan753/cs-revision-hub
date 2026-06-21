@@ -20,6 +20,7 @@ import { useReducedMotion } from "../../hooks/useReducedMotion";
 import { useProgressStore } from "../../store/progressStore";
 import { getRankForLevel } from "../../store/rankSystem";
 import { RankEmblem } from "../ui/RankEmblem";
+import { chooseDisplayProgress } from "./displayProgress";
 
 const baseNavItems = [
   { to: "/", label: "Home", icon: Home },
@@ -34,9 +35,13 @@ export function AppShell() {
   const settings = useProgressStore((state) => state.settings);
   const reducedMotion = useReducedMotion();
   const [pulseStreak, setPulseStreak] = useState(false);
-  const displayedXp = rankedProgress?.xp ?? xp;
-  const displayedLevel = rankedProgress?.level ?? level;
-  const displayedStreak = rankedProgress?.streak ?? streak;
+  const displayedProgress = chooseDisplayProgress({
+    local: { xp, level, streak },
+    ranked: rankedProgress,
+  });
+  const displayedXp = displayedProgress.xp;
+  const displayedLevel = displayedProgress.level;
+  const displayedStreak = displayedProgress.streak;
   const rank = getRankForLevel(displayedLevel);
   const navItems =
     profile?.role === "teacher"
