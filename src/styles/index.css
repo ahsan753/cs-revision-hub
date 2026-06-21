@@ -259,6 +259,46 @@ a {
   ) !important;
 }
 
+.rank-card-surface-bronze {
+  background-image: linear-gradient(to bottom right, #fff7ed, #ffffff, #fafaf9);
+}
+
+.rank-card-surface-silver {
+  background-image: linear-gradient(to bottom right, #f8fafc, #ffffff, #eff6ff);
+}
+
+.rank-card-surface-gold {
+  background-image: linear-gradient(to bottom right, #fffbeb, #ffffff, #fefce8);
+}
+
+.rank-card-surface-platinum {
+  background-image: linear-gradient(to bottom right, #ecfeff, #ffffff, #f5f3ff);
+}
+
+.rank-card-surface-prestige {
+  background-image: linear-gradient(to bottom right, #f5f3ff, #ffffff, #fffbeb);
+}
+
+.dark .rank-card-surface-bronze {
+  background-image: linear-gradient(to bottom right, #431407, #111827, #1c1917);
+}
+
+.dark .rank-card-surface-silver {
+  background-image: linear-gradient(to bottom right, #1e293b, #111827, #172554);
+}
+
+.dark .rank-card-surface-gold {
+  background-image: linear-gradient(to bottom right, #451a03, #111827, #422006);
+}
+
+.dark .rank-card-surface-platinum {
+  background-image: linear-gradient(to bottom right, #164e63, #111827, #312e81);
+}
+
+.dark .rank-card-surface-prestige {
+  background-image: linear-gradient(to bottom right, #3b0764, #111827, #451a03);
+}
+
 .dark input,
 .dark textarea {
   background-color: #0f172a;

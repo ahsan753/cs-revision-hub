@@ -84,7 +84,6 @@ interface ProgressActions {
   recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => number;
   recordDailyTaskCompletion: (taskId: string) => void;
   refreshDailyProgress: () => void;
-  setDailyGoal: (goal: number) => void;
   setName: (name: string) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
   importProgress: (snapshot: unknown) => boolean;
@@ -97,6 +96,7 @@ export type ProgressState = ProgressSnapshot &
     celebrations: CelebrationEvent[];
   };
 
+export const fixedDailyGoal = 5;
 const dayMs = 24 * 60 * 60 * 1000;
 export const maxNameLength = 30;
 const maxHistoryEntries = 500;
@@ -131,11 +131,7 @@ export function getXpForAnswer(
   timestamp = Date.now(),
 ) {
   if (!result.correct || result.activity === "flashcards") return 0;
-  if (
-    previous &&
-    previous.correctCount >= 2 &&
-    previous.nextDue > timestamp
-  ) {
+  if (previous && previous.correctCount >= 2 && previous.nextDue > timestamp) {
     return 0;
   }
   return 10 * difficulty;
@@ -148,7 +144,7 @@ function freshProgress(): ProgressSnapshot {
     xp: 0,
     level: 1,
     streak: 0,
-    dailyGoal: 20,
+    dailyGoal: fixedDailyGoal,
     dailyProgress: {
       date: todayKey(),
       answered: 0,
@@ -317,12 +313,16 @@ function normaliseSnapshot(
     xp: boundedInteger(snapshot.xp, 0, Number.MAX_SAFE_INTEGER),
     level: 1,
     streak: boundedInteger(snapshot.streak, 0, 3650),
-    dailyGoal: boundedInteger(snapshot.dailyGoal, 5, 100),
+    dailyGoal: fixedDailyGoal,
     dailyProgress: {
       ...base.dailyProgress,
       ...snapshot.dailyProgress,
       answered: boundedInteger(snapshot.dailyProgress?.answered, 0, 1000),
-      xp: boundedInteger(snapshot.dailyProgress?.xp, 0, Number.MAX_SAFE_INTEGER),
+      xp: boundedInteger(
+        snapshot.dailyProgress?.xp,
+        0,
+        Number.MAX_SAFE_INTEGER,
+      ),
       completed: Boolean(snapshot.dailyProgress?.completed),
       completedTasks: Array.isArray(snapshot.dailyProgress?.completedTasks)
         ? snapshot.dailyProgress.completedTasks.filter(
@@ -363,7 +363,7 @@ function toProgressSnapshot(state: ProgressState): ProgressSnapshot {
     xp: state.xp,
     level: state.level,
     streak: state.streak,
-    dailyGoal: state.dailyGoal,
+    dailyGoal: fixedDailyGoal,
     dailyProgress: state.dailyProgress,
     unlockedBadges: state.unlockedBadges,
     settings: state.settings,
@@ -398,9 +398,9 @@ function nextItemProgress(
   const currentBox = previous?.leitnerBox ?? 1;
   const protectedPrematureMiss = Boolean(
     !result.correct &&
-      previous &&
-      previous.correctCount >= 2 &&
-      previous.nextDue > result.timestamp,
+    previous &&
+    previous.correctCount >= 2 &&
+    previous.nextDue > result.timestamp,
   );
   const leitnerBox = result.correct
     ? Math.min(5, currentBox + 1)
@@ -719,7 +719,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
         awardedXp = gainedXp;
         const answered = daily.answered + 1;
         const xp = state.xp + gainedXp;
-        const completedNow = isDailyGoalComplete(answered, state.dailyGoal);
+        const completedNow = isDailyGoalComplete(answered, fixedDailyGoal);
         const dailyGoalCompletedByAnswer = !daily.completed && completedNow;
         const streak = dailyGoalCompletedByAnswer
           ? state.streak + 1
@@ -730,7 +730,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           xp,
           level: levelFromXp(xp),
           streak,
-          dailyGoal: state.dailyGoal,
+          dailyGoal: fixedDailyGoal,
           dailyProgress: {
             date: daily.date,
             answered,
@@ -799,24 +799,6 @@ export const useProgressStore = create<ProgressState>((set, get) => {
         }
         return {
           ...persist({ ...toProgressSnapshot(state), dailyProgress: daily }),
-          celebrations: state.celebrations,
-        };
-      });
-    },
-    setDailyGoal: (goal) => {
-      set((state) => {
-        const daily = currentDailyProgress(state.dailyProgress);
-        const dailyGoal = Math.min(100, Math.max(5, Math.round(goal)));
-        return {
-          ...persist({
-            ...toProgressSnapshot(state),
-            streak: state.streak,
-            dailyGoal,
-            dailyProgress: {
-              ...daily,
-              completed: daily.completed,
-            },
-          }),
           celebrations: state.celebrations,
         };
       });

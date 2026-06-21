@@ -7,6 +7,7 @@ import { getUnitMastery } from "../store/mastery";
 import { STORAGE_KEY } from "../store/storage";
 import type { ItemProgress, ProgressSnapshot } from "../store/progressStore";
 import {
+  fixedDailyGoal,
   getItemAccuracyPercent,
   maxNameLength,
   useProgressStore,
@@ -18,7 +19,6 @@ export function SettingsPage() {
   const snapshot = useProgressStore();
   const resetProgress = useProgressStore((state) => state.resetProgress);
   const updateSettings = useProgressStore((state) => state.updateSettings);
-  const setDailyGoal = useProgressStore((state) => state.setDailyGoal);
   const setName = useProgressStore((state) => state.setName);
   const importProgress = useProgressStore((state) => state.importProgress);
 
@@ -112,29 +112,19 @@ export function SettingsPage() {
           />
         </label>
 
-        <label className="mt-5 block rounded-lg border border-line bg-slate-50 p-4">
+        <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
           <span className="flex items-center justify-between gap-4">
             <span>
               <span className="block text-sm font-extrabold">Daily goal</span>
               <span className="mt-1 block text-xs leading-5 text-muted">
-                Items to answer before the daily streak is counted.
+                Students complete 5 items before the daily streak is counted.
               </span>
             </span>
             <span className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-extrabold text-primary shadow-sm">
-              {snapshot.dailyGoal}
+              {fixedDailyGoal}
             </span>
           </span>
-          <input
-            className="mt-4 w-full accent-indigo-600"
-            type="range"
-            min="5"
-            max="100"
-            step="5"
-            value={snapshot.dailyGoal}
-            onChange={(event) => setDailyGoal(Number(event.target.value))}
-            aria-label="Daily goal items"
-          />
-        </label>
+        </div>
       </section>
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">

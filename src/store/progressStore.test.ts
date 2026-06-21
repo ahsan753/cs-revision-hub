@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  fixedDailyGoal,
   getCelebrationEventsForAnswer,
   getItemAccuracyPercent,
   getXpForAnswer,
@@ -29,7 +30,7 @@ function makeSnapshot(
     xp: 0,
     level: 1,
     streak: 0,
-    dailyGoal: 20,
+    dailyGoal: fixedDailyGoal,
     dailyProgress: {
       date: "2026-06-16",
       answered: 0,
@@ -223,26 +224,22 @@ describe("progress import validation", () => {
   });
 });
 
-describe("daily goal fairness", () => {
-  it("does not complete the day or increment the streak when a student lowers today's goal", () => {
-    useProgressStore.setState({
-      ...useProgressStore.getState(),
-      streak: 0,
-      dailyGoal: 20,
-      dailyProgress: {
-        date: useProgressStore.getState().dailyProgress.date,
-        answered: 6,
-        xp: 0,
-        completed: false,
-        completedTasks: [],
-      },
-      celebrations: [],
-    });
+describe("fixed daily goal", () => {
+  it("uses 5 items for fresh progress", () => {
+    useProgressStore.getState().resetProgress();
 
-    useProgressStore.getState().setDailyGoal(5);
+    expect(useProgressStore.getState().dailyGoal).toBe(fixedDailyGoal);
+  });
 
-    expect(useProgressStore.getState().dailyProgress.completed).toBe(false);
-    expect(useProgressStore.getState().streak).toBe(0);
+  it("normalises imported daily goals to 5 items", () => {
+    const ok = useProgressStore.getState().importProgress(
+      makeSnapshot({
+        dailyGoal: 50,
+      }),
+    );
+
+    expect(ok).toBe(true);
+    expect(useProgressStore.getState().dailyGoal).toBe(fixedDailyGoal);
     useProgressStore.getState().resetProgress();
   });
 });

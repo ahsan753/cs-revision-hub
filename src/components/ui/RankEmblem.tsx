@@ -25,35 +25,35 @@ const tierStyles: Record<
     ring: "from-orange-300 via-amber-600 to-stone-800",
     chip: "bg-orange-100 text-orange-800",
     progress: "bg-orange-500",
-    surface: "from-orange-50 via-white to-stone-50",
+    surface: "rank-card-surface-bronze",
   },
   silver: {
     label: "Silver Tier",
     ring: "from-slate-100 via-slate-400 to-slate-800",
     chip: "bg-slate-100 text-slate-700",
     progress: "bg-slate-500",
-    surface: "from-slate-50 via-white to-blue-50",
+    surface: "rank-card-surface-silver",
   },
   gold: {
     label: "Gold Tier",
     ring: "from-yellow-200 via-amber-400 to-yellow-700",
     chip: "bg-amber-100 text-amber-800",
     progress: "bg-amber-400",
-    surface: "from-amber-50 via-white to-yellow-50",
+    surface: "rank-card-surface-gold",
   },
   platinum: {
     label: "Platinum Tier",
     ring: "from-cyan-200 via-violet-300 to-indigo-700",
     chip: "bg-cyan-100 text-cyan-800",
     progress: "bg-cyan-500",
-    surface: "from-cyan-50 via-white to-violet-50",
+    surface: "rank-card-surface-platinum",
   },
   prestige: {
     label: "Prestige Tier",
     ring: "from-fuchsia-300 via-indigo-400 to-amber-300",
     chip: "bg-violet-100 text-violet-800",
     progress: "bg-violet-500",
-    surface: "from-violet-50 via-white to-amber-50",
+    surface: "rank-card-surface-prestige",
   },
 };
 
@@ -141,7 +141,7 @@ export function LevelRankCard({
 
   return (
     <div
-      className={`bg-gradient-to-br ${tier.surface} ${
+      className={`${tier.surface} ${
         variant === "card"
           ? "rounded-lg border border-line p-5 shadow-soft"
           : "rounded-lg p-4"
