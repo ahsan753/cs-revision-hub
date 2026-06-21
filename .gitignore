@@ -7,3 +7,4 @@ dist/
 !*.env.example
 *.local
 npm-debug.log*
+DO_NOT_COMMIT_MD_NOTES/
