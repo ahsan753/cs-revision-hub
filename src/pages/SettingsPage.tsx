@@ -7,7 +7,6 @@ import { getUnitMastery } from "../store/mastery";
 import { STORAGE_KEY } from "../store/storage";
 import type { ItemProgress, ProgressSnapshot } from "../store/progressStore";
 import {
-  fixedDailyGoal,
   getItemAccuracyPercent,
   useProgressStore,
 } from "../store/progressStore";
@@ -95,19 +94,6 @@ export function SettingsPage() {
           />
         </div>
 
-        <div className="mt-5 rounded-lg border border-line bg-slate-50 p-4">
-          <span className="flex items-center justify-between gap-4">
-            <span>
-              <span className="block text-sm font-extrabold">Daily goal</span>
-              <span className="mt-1 block text-xs leading-5 text-muted">
-                Students complete 5 items before the daily streak is counted.
-              </span>
-            </span>
-            <span className="shrink-0 rounded-lg bg-white px-3 py-2 text-sm font-extrabold text-primary shadow-sm">
-              {fixedDailyGoal}
-            </span>
-          </span>
-        </div>
       </section>
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
