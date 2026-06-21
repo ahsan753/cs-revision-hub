@@ -86,8 +86,6 @@ export function LeaderboardPage() {
         <Notice>Verify your email before using ranked leaderboards.</Notice>
       ) : !profile?.class_id ? (
         <Notice>Join a class from your account page to unlock class and year boards.</Notice>
-      ) : !profile.display_name ? (
-        <Notice>Your teacher needs to approve a display name before you appear publicly.</Notice>
       ) : null}
 
       {message ? <Notice>{message}</Notice> : null}
@@ -127,7 +125,7 @@ function LeaderboardTable({ rows }: { rows: LeaderboardRow[] }) {
   if (rows.length === 0) {
     return (
       <div className="rounded-lg border border-line bg-white p-6 text-sm font-bold text-muted shadow-soft">
-        No approved leaderboard rows yet.
+        No leaderboard rows yet.
       </div>
     );
   }

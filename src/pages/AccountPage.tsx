@@ -65,7 +65,7 @@ export function AccountPage() {
           <p>Status: <span className="text-muted">{isVerified ? "Verified" : "Check email"}</span></p>
           <p>Role: <span className="text-muted">{profile?.role ?? "Loading"}</span></p>
           <p>Private name: <span className="text-muted">{profile?.full_name ?? "Pending"}</span></p>
-          <p>Display name: <span className="text-muted">{profile?.display_name ?? "Teacher approval pending"}</span></p>
+          <p>Display name: <span className="text-muted">{profile?.display_name ?? profile?.full_name?.split(" ")[0] ?? "Pending"}</span></p>
           <p>Class: <span className="text-muted">{profile?.class_id ? "Joined" : "Not joined"}</span></p>
           <p>Year group: <span className="text-muted">{profile?.year_group ?? "Not set"}</span></p>
         </div>
@@ -80,8 +80,7 @@ export function AccountPage() {
         <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
           <h2 className="text-lg font-extrabold">Teacher tools</h2>
           <p className="mt-2 text-sm font-bold text-muted">
-            Create classes, share join codes, approve display names, and manage
-            your roster.
+            Create classes, generate student logins, and manage your roster.
           </p>
           <div className="mt-4">
             <Link to="/teacher">
@@ -119,7 +118,7 @@ export function AccountPage() {
               );
             }}
           />
-          Show my approved display name on leaderboards
+          Show my display name on leaderboards
         </label>
         <div className="mt-5 flex flex-wrap gap-3">
           <Button variant="secondary" onClick={() => void signOut()}>
