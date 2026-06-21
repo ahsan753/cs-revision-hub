@@ -1,6 +1,8 @@
 import { FormEvent, useState, type ReactNode } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
+import { authErrorMessage } from "../auth/authMessages";
 import { useAuth } from "../auth/useAuth";
 
 export function LoginPage() {
@@ -19,7 +21,7 @@ export function LoginPage() {
       await signIn(email, password);
       navigate("/account");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Sign in failed.");
+      setMessage(authErrorMessage(error, "Sign in failed."));
     } finally {
       setBusy(false);
     }
@@ -33,11 +35,12 @@ export function LoginPage() {
       {!configured ? <SupabaseSetupNotice /> : null}
       <form className="space-y-4" onSubmit={submit}>
         <TextField
-          label="Email"
-          type="email"
+          label="Username or email"
+          type="text"
           value={email}
           onChange={setEmail}
-          autoComplete="email"
+          autoComplete="username"
+          placeholder="firstname.lastname"
         />
         <TextField
           label="Password"
@@ -59,14 +62,16 @@ export function LoginPage() {
           className="text-muted hover:text-primary"
           disabled={!configured || !email}
           onClick={async () => {
+            if (!email.includes("@")) {
+              setMessage("Ask your teacher to reset your password.");
+              return;
+            }
             try {
               await resetPassword(email);
               setMessage("Password reset email sent.");
             } catch (error) {
               setMessage(
-                error instanceof Error
-                  ? error.message
-                  : "Password reset email could not be sent.",
+                authErrorMessage(error, "Password reset email could not be sent."),
               );
             }
           }}
@@ -92,9 +97,11 @@ export function SignupPage() {
     setMessage(null);
     try {
       await signUp(email, password);
-      setMessage("Check your school email to verify your account.");
+      setMessage(
+        "Account created. Check your school email, including junk or spam, for the verification link.",
+      );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Signup failed.");
+      setMessage(authErrorMessage(error, "Signup failed."));
     } finally {
       setBusy(false);
     }
@@ -179,17 +186,39 @@ function TextField({
   autoComplete?: string;
   placeholder?: string;
 }) {
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword && showPassword ? "text" : type;
+
   return (
     <label className="block">
       <span className="text-sm font-bold text-muted">{label}</span>
-      <input
-        className="mt-2 min-h-11 w-full rounded-lg border border-line px-3 text-sm font-bold outline-none focus:border-primary"
-        type={type}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-      />
+      <span className="relative mt-2 block">
+        <input
+          className={`min-h-11 w-full rounded-lg border border-line px-3 text-sm font-bold outline-none focus:border-primary ${
+            isPassword ? "pr-12" : ""
+          }`}
+          type={inputType}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+        />
+        {isPassword ? (
+          <button
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted transition hover:bg-slate-100 hover:text-ink focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            onClick={() => setShowPassword((current) => !current)}
+            type="button"
+          >
+            {showPassword ? (
+              <EyeOff aria-hidden="true" className="size-5" />
+            ) : (
+              <Eye aria-hidden="true" className="size-5" />
+            )}
+          </button>
+        ) : null}
+      </span>
     </label>
   );
 }

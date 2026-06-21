@@ -1,4 +1,6 @@
 export const studentEmailDomain = "student.orbital.education";
+export const teacherManagedLoginSuffix = "csrevisionhub";
+export const teacherManagedAuthEmailDomain = "csrevisionhub.local";
 
 export function isAllowedStudentEmail(email: string) {
   return email.trim().toLowerCase().endsWith(`@${studentEmailDomain}`);

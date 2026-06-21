@@ -14,7 +14,9 @@ import {
 import type { RankedProgressTotals } from "../ranked/rankedTypes";
 import { useProgressStore } from "../store/progressStore";
 import { AuthContext, type AuthContextValue, type Profile } from "./authContext";
+import { getAuthRedirectTo } from "./authRedirect";
 import { isAllowedStudentEmail, nameFromEmail } from "./nameFromEmail";
+import { normaliseLoginIdentifier } from "./studentCredentials";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -115,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn: async (email, password) => {
         const client = requireSupabase();
         const { error } = await client.auth.signInWithPassword({
-          email,
+          email: normaliseLoginIdentifier(email),
           password,
         });
         if (error) throw error;
@@ -129,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email,
           password,
           options: {
+            emailRedirectTo: getAuthRedirectTo(),
             data: {
               full_name: nameFromEmail(email),
             },

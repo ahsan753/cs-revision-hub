@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "seed:content": "node scripts/seed-content-items.mjs",
     "supabase:db:push": "npm run seed:content && supabase db push",
-    "supabase:functions:deploy": "supabase functions deploy record-ranked-answer delete-account send-test-email --use-api",
+    "supabase:functions:deploy": "supabase functions deploy record-ranked-answer delete-account send-test-email teacher-student-accounts --use-api",
     "supabase:advisors": "supabase db advisors --linked --fail-on none",
     "lint": "eslint .",
     "format": "prettier --check .",
