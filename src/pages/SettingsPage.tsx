@@ -1,5 +1,5 @@
-import { Download, FileText, RotateCcw, Sparkles, Upload } from "lucide-react";
-import { useRef, useState } from "react";
+import { FileText, RotateCcw, Sparkles } from "lucide-react";
+import { useState } from "react";
 import { requestOnboardingReplay } from "../components/feedback/onboardingEvents";
 import { Button } from "../components/ui/Button";
 import { contentIndex } from "../content/contentIndex";
@@ -12,12 +12,10 @@ import {
 } from "../store/progressStore";
 
 export function SettingsPage() {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState("");
   const snapshot = useProgressStore();
   const resetProgress = useProgressStore((state) => state.resetProgress);
   const updateSettings = useProgressStore((state) => state.updateSettings);
-  const importProgress = useProgressStore((state) => state.importProgress);
 
   const exportProgressPdf = () => {
     const data = toSnapshot(snapshot);
@@ -32,34 +30,6 @@ export function SettingsPage() {
     reportWindow.focus();
     window.setTimeout(() => reportWindow.print(), 250);
     setMessage("PDF overview opened.");
-  };
-
-  const exportProgressBackup = () => {
-    const data = toSnapshot(snapshot);
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `cs-revision-hub-progress-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setMessage("Progress backup exported.");
-  };
-
-  const handleImport = async (file?: File) => {
-    if (!file) return;
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text) as unknown;
-      const ok = importProgress(parsed);
-      setMessage(
-        ok ? "Progress imported." : "That progress file could not be imported.",
-      );
-    } catch {
-      setMessage("That progress file could not be read.");
-    }
   };
 
   return (
@@ -107,22 +77,6 @@ export function SettingsPage() {
           <Button onClick={exportProgressPdf}>
             <FileText size={18} /> Export PDF overview
           </Button>
-          <Button variant="secondary" onClick={exportProgressBackup}>
-            <Download size={18} /> Backup JSON
-          </Button>
-          <Button
-            variant="secondary"
-            onClick={() => fileInput.current?.click()}
-          >
-            <Upload size={18} /> Import progress
-          </Button>
-          <input
-            ref={fileInput}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(event) => handleImport(event.target.files?.[0])}
-          />
           <Button
             variant="danger"
             onClick={() => {
