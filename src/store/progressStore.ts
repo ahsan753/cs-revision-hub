@@ -50,6 +50,7 @@ export interface ProgressSnapshot {
     reducedMotion: boolean;
     darkMode: boolean;
   };
+  timedActivityBests: Record<string, number>;
   itemProgress: Record<string, ItemProgress>;
   history: ActivityResult[];
 }
@@ -83,6 +84,7 @@ export type CelebrationEvent =
 interface ProgressActions {
   recordAnswer: (result: ActivityResult, difficulty?: 1 | 2 | 3) => number;
   recordDailyTaskCompletion: (taskId: string) => void;
+  recordTimedActivityBest: (activityKey: string, elapsedMs: number) => boolean;
   refreshDailyProgress: () => void;
   setName: (name: string) => void;
   updateSettings: (settings: Partial<ProgressSnapshot["settings"]>) => void;
@@ -101,6 +103,7 @@ const dayMs = 24 * 60 * 60 * 1000;
 export const maxNameLength = 30;
 const maxHistoryEntries = 500;
 const maxAttemptsPerItem = 500;
+const maxTimedActivityMs = dayMs;
 const intervals: Record<number, number> = {
   1: 0,
   2: dayMs,
@@ -158,6 +161,7 @@ function freshProgress(): ProgressSnapshot {
       reducedMotion: false,
       darkMode: false,
     },
+    timedActivityBests: {},
     itemProgress: {},
     history: [],
   };
@@ -278,6 +282,19 @@ function normaliseItemProgress(progress: Record<string, unknown>) {
   return items;
 }
 
+function normaliseTimedActivityBests(value: unknown) {
+  if (!isRecord(value)) return {};
+  const bests: Record<string, number> = {};
+
+  for (const [key, rawMs] of Object.entries(value)) {
+    if (!key.trim()) continue;
+    const elapsedMs = boundedInteger(rawMs, 1, maxTimedActivityMs);
+    if (elapsedMs > 0) bests[key] = elapsedMs;
+  }
+
+  return bests;
+}
+
 function getDifficultyByItemId() {
   const difficulties = new Map<string, 1 | 2 | 3>();
   for (const item of [
@@ -335,6 +352,9 @@ function normaliseSnapshot(
       reducedMotion: Boolean(snapshot.settings?.reducedMotion),
       darkMode: Boolean(snapshot.settings?.darkMode),
     },
+    timedActivityBests: normaliseTimedActivityBests(
+      snapshot.timedActivityBests,
+    ),
     unlockedBadges: [],
     itemProgress: normaliseItemProgress(snapshot.itemProgress ?? {}),
     history: normaliseHistory(snapshot.history),
@@ -367,6 +387,7 @@ function toProgressSnapshot(state: ProgressState): ProgressSnapshot {
     dailyProgress: state.dailyProgress,
     unlockedBadges: state.unlockedBadges,
     settings: state.settings,
+    timedActivityBests: state.timedActivityBests,
     itemProgress: state.itemProgress,
     history: state.history,
   };
@@ -740,6 +761,7 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           },
           unlockedBadges: state.unlockedBadges,
           settings: state.settings,
+          timedActivityBests: state.timedActivityBests,
           itemProgress: {
             ...state.itemProgress,
             [result.itemId]: nextItemProgress(
@@ -787,6 +809,29 @@ export const useProgressStore = create<ProgressState>((set, get) => {
           celebrations: state.celebrations,
         };
       });
+    },
+    recordTimedActivityBest: (activityKey, elapsedMs) => {
+      const key = activityKey.trim();
+      const elapsed = boundedInteger(elapsedMs, 1, maxTimedActivityMs);
+      if (!key || elapsed <= 0) return false;
+
+      let updated = false;
+      set((state) => {
+        const previousBest = state.timedActivityBests[key];
+        if (previousBest && previousBest <= elapsed) return state;
+        updated = true;
+        return {
+          ...persist({
+            ...toProgressSnapshot(state),
+            timedActivityBests: {
+              ...state.timedActivityBests,
+              [key]: elapsed,
+            },
+          }),
+          celebrations: state.celebrations,
+        };
+      });
+      return updated;
     },
     refreshDailyProgress: () => {
       set((state) => {

@@ -307,17 +307,24 @@ function generateProblem(mode: Mode): Problem {
     const total = a + b;
     const overflow = total > 255;
     const result = total % 256;
-    const answer = `${toBinary8(result)}${overflow ? " overflow" : ""}`;
+    const storedResult = toBinary8(result);
+    const compactResult = storedResult.replace(/\s/g, "");
+    const answer = `${storedResult}${overflow ? " overflow" : ""}`;
     return {
       id: `${mode}-${a}-${b}`,
       prompt: `Add ${toBinary8(a)} + ${toBinary8(b)} in an 8-bit register. Include overflow if it occurs.`,
       answer,
       accept: overflow
-        ? [answer, `${toBinary8(result)} with overflow`]
-        : [answer, toBinary8(result)],
+        ? [
+            answer,
+            `${compactResult} overflow`,
+            `${storedResult} with overflow`,
+            `${compactResult} with overflow`,
+          ]
+        : [storedResult, compactResult],
       working: [
         `${a} + ${b} = ${total}`,
-        `8-bit stored result = ${toBinary8(result)}`,
+        `8-bit stored result = ${storedResult}`,
         `Overflow = ${overflow ? "yes" : "no"}`,
       ],
     };

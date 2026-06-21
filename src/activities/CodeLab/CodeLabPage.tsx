@@ -14,6 +14,7 @@ import { useXpFloat } from "../../hooks/useXpFloat";
 import {
   getCodeTasksForScope,
   getDefaultDifficulty,
+  getScopeBackPath,
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
@@ -39,6 +40,7 @@ export function CodeLabPage() {
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const tasks = useMemo(() => getCodeTasksForScope(scope), [scope]);
+  const backPath = getScopeBackPath(scope);
   const [index, setIndex] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, CodeLabDraft>>({});
   const correctTaskIdsRef = useRef<Set<string>>(new Set());
@@ -91,8 +93,11 @@ export function CodeLabPage() {
         <p className="mt-2 text-sm text-muted">
           Code Lab appears for Units 7 and 8 content.
         </p>
-        <Link className="mt-4 inline-flex text-primary hover:underline" to="/">
-          Back to dashboard
+        <Link
+          className="mt-4 inline-flex text-primary hover:underline"
+          to={backPath}
+        >
+          Back to overview
         </Link>
       </div>
     );
@@ -103,9 +108,9 @@ export function CodeLabPage() {
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to="/"
+            to={backPath}
             className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
-            aria-label="Back to dashboard"
+            aria-label="Back to overview"
           >
             <ArrowLeft size={20} />
           </Link>

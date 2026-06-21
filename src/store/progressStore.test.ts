@@ -44,6 +44,7 @@ function makeSnapshot(
       reducedMotion: false,
       darkMode: false,
     },
+    timedActivityBests: {},
     itemProgress: {},
     history: [],
     ...overrides,
@@ -251,6 +252,33 @@ describe("profile settings", () => {
     useProgressStore.getState().setName(longName);
 
     expect(useProgressStore.getState().name).toHaveLength(maxNameLength);
+    useProgressStore.getState().resetProgress();
+  });
+});
+
+describe("timed activity bests", () => {
+  it("keeps the fastest completed time for an activity key", () => {
+    useProgressStore.getState().resetProgress();
+
+    expect(
+      useProgressStore
+        .getState()
+        .recordTimedActivityBest("memory:unit-u1", 40_000),
+    ).toBe(true);
+    expect(
+      useProgressStore
+        .getState()
+        .recordTimedActivityBest("memory:unit-u1", 45_000),
+    ).toBe(false);
+    expect(
+      useProgressStore
+        .getState()
+        .recordTimedActivityBest("memory:unit-u1", 35_000),
+    ).toBe(true);
+    expect(useProgressStore.getState().timedActivityBests).toMatchObject({
+      "memory:unit-u1": 35_000,
+    });
+
     useProgressStore.getState().resetProgress();
   });
 });

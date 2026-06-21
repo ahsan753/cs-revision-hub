@@ -14,11 +14,12 @@ import {
   contentIndex,
   getDefaultDifficulty,
   getMcqsForScope,
+  getScopeBackPath,
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
 import type { MCQ } from "../../data/contentTypes";
-import { getMasteryCredit, getMasteryForItemIds } from "../../store/mastery";
+import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
 import { isKnown, useProgressStore } from "../../store/progressStore";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
@@ -34,6 +35,7 @@ interface QuizPageState {
   session: QuizSession;
   selected: number | null;
   answered: boolean;
+  answerResults: Record<string, "correct" | "incorrect">;
   correctCount: number;
   answeredCount: number;
 }
@@ -43,6 +45,7 @@ export function QuizPage() {
   const location = useLocation();
   const scopeKey = scopeParam ?? "mixed";
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
+  const backPath = getScopeBackPath(scope);
   const progress = useProgressStore((state) => state.itemProgress);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const recordDailyTaskCompletion = useProgressStore(
@@ -70,6 +73,9 @@ export function QuizPage() {
     initialQuizState.selected,
   );
   const [answered, setAnswered] = useState(initialQuizState.answered);
+  const [answerResults, setAnswerResults] = useState(
+    initialQuizState.answerResults,
+  );
   const [correctCount, setCorrectCount] = useState(
     initialQuizState.correctCount,
   );
@@ -86,6 +92,7 @@ export function QuizPage() {
     setSession(restored.session);
     setSelected(restored.selected);
     setAnswered(restored.answered);
+    setAnswerResults(restored.answerResults);
     setCorrectCount(restored.correctCount);
     setAnsweredCount(restored.answeredCount);
     submittedQuestionRef.current = restored.answered
@@ -95,20 +102,9 @@ export function QuizPage() {
 
   const current = session.queue[0];
   const mastery = getMasteryForItemIds(session.itemIds, progress);
-  const liveCompletedIds = useMemo(
-    () =>
-      session.itemIds.filter(
-        (itemId) =>
-          session.completedIds.includes(itemId) ||
-          isKnown(progress[itemId]) ||
-          (session.targets[itemId] ?? 1) <= 0,
-      ),
-    [progress, session.completedIds, session.itemIds, session.targets],
-  );
-  const liveCompleted = useMemo(
-    () => new Set(liveCompletedIds),
-    [liveCompletedIds],
-  );
+  const currentQuestionIndex = current
+    ? Math.max(0, session.itemIds.indexOf(current.id))
+    : 0;
   const finished = sourceItems.length > 0 && session.queue.length === 0;
 
   useEffect(() => {
@@ -121,11 +117,13 @@ export function QuizPage() {
       session,
       selected,
       answered,
+      answerResults,
       correctCount,
       answeredCount,
     });
   }, [
     answered,
+    answerResults,
     answeredCount,
     correctCount,
     finished,
@@ -139,8 +137,11 @@ export function QuizPage() {
     return (
       <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <h1 className="text-xl font-extrabold">No quiz questions available</h1>
-        <Link className="mt-4 inline-flex text-primary hover:underline" to="/">
-          Back to dashboard
+        <Link
+          className="mt-4 inline-flex text-primary hover:underline"
+          to={backPath}
+        >
+          Back to overview
         </Link>
       </div>
     );
@@ -167,6 +168,7 @@ export function QuizPage() {
               setSession(createQuizSession(sourceItems, progressRef.current));
               setSelected(null);
               setAnswered(false);
+              setAnswerResults({});
               submittedQuestionRef.current = null;
               setCorrectCount(0);
               setAnsweredCount(0);
@@ -174,8 +176,8 @@ export function QuizPage() {
           >
             Practise again
           </Button>
-          <Link to="/">
-            <Button>Dashboard</Button>
+          <Link to={backPath}>
+            <Button>Back to overview</Button>
           </Link>
         </div>
       </div>
@@ -201,6 +203,10 @@ export function QuizPage() {
     setAnswered(true);
     setAnsweredCount((value) => value + 1);
     if (correct) setCorrectCount((value) => value + 1);
+    setAnswerResults((value) => ({
+      ...value,
+      [current.id]: correct ? "correct" : "incorrect",
+    }));
     setSession((value) => {
       const remaining = value.targets[current.id] ?? 1;
       const nextRemaining = correct
@@ -253,9 +259,9 @@ export function QuizPage() {
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to="/"
+            to={backPath}
             className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
-            aria-label="Back to dashboard"
+            aria-label="Back to overview"
           >
             <ArrowLeft size={20} />
           </Link>
@@ -268,24 +274,30 @@ export function QuizPage() {
         </div>
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-end">
           <span className="shrink-0 text-sm font-extrabold">
-            Mastery {mastery.earned} / {mastery.required}
+            Question {currentQuestionIndex + 1} / {session.itemIds.length}
           </span>
           <div
             className="flex min-w-0 flex-wrap gap-1"
-            aria-label={`${mastery.earned} of ${mastery.required} mastery points earned`}
+            aria-label="Question results: green is correct, red is incorrect, blue is current, grey is unanswered"
           >
-            {session.itemIds.map((itemId) => {
-              const credit = liveCompleted.has(itemId)
-                ? 2
-                : getMasteryCredit(progress[itemId]);
+            {session.itemIds.map((itemId, index) => {
+              const result = answerResults[itemId];
+              const dotLabel = getQuestionResultLabel(
+                index,
+                result,
+                current.id === itemId,
+              );
               return (
                 <span
                   key={itemId}
+                  role="img"
+                  aria-label={dotLabel}
+                  title={dotLabel}
                   className={`h-2 w-2 shrink-0 rounded-full ${
-                    credit >= 2
+                    result === "correct"
                       ? "bg-emerald-500"
-                      : credit === 1
-                        ? "bg-amber-400"
+                      : result === "incorrect"
+                        ? "bg-rose-500"
                         : current.id === itemId
                           ? "bg-primary"
                           : "bg-slate-300"
@@ -478,6 +490,7 @@ type StoredQuizPageState = {
   };
   selected: number | null;
   answered: boolean;
+  answerResults?: Record<string, "correct" | "incorrect">;
   correctCount: number;
   answeredCount: number;
 };
@@ -490,6 +503,7 @@ function createQuizPageState(
     session: createQuizSession(items, progress),
     selected: null,
     answered: false,
+    answerResults: {},
     correctCount: 0,
     answeredCount: 0,
   };
@@ -522,6 +536,13 @@ function restoreQuizPageState(
     const completedIds = parsed.session.completedIds.filter((id) =>
       itemIds.includes(id),
     );
+    const answerResults = Object.fromEntries(
+      Object.entries(parsed.answerResults ?? {}).filter(
+        (entry): entry is [string, "correct" | "incorrect"] =>
+          itemIds.includes(entry[0]) &&
+          (entry[1] === "correct" || entry[1] === "incorrect"),
+      ),
+    );
     const currentOptions = queue[0]?.options ?? [];
     const selected =
       typeof parsed.selected === "number" &&
@@ -539,6 +560,7 @@ function restoreQuizPageState(
       },
       selected,
       answered: Boolean(parsed.answered && selected !== null),
+      answerResults,
       correctCount: Math.max(0, parsed.correctCount),
       answeredCount: Math.max(0, parsed.answeredCount),
     };
@@ -559,6 +581,7 @@ function saveQuizPageState(scopeKey: string, state: QuizPageState) {
     },
     selected: state.selected,
     answered: state.answered,
+    answerResults: state.answerResults,
     correctCount: state.correctCount,
     answeredCount: state.answeredCount,
   };
@@ -579,6 +602,17 @@ function clearStoredQuizPageState(scopeKey: string) {
   } catch {
     // Ignore storage cleanup failures.
   }
+}
+
+function getQuestionResultLabel(
+  index: number,
+  result: "correct" | "incorrect" | undefined,
+  current: boolean,
+) {
+  if (result === "correct") return `Question ${index + 1}: correct`;
+  if (result === "incorrect") return `Question ${index + 1}: incorrect`;
+  if (current) return `Question ${index + 1}: current question`;
+  return `Question ${index + 1}: unanswered`;
 }
 
 function getQuizPriority(

@@ -7,12 +7,17 @@ import { useXpFloat } from "../../hooks/useXpFloat";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
+  getScopeBackPath,
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
 import { useProgressStore } from "../../store/progressStore";
 import { useReducedMotion } from "../../hooks/useReducedMotion";
-import { shuffle, takeRound } from "../shared/activityUtils";
+import {
+  formatElapsedTime,
+  shuffle,
+  takeRound,
+} from "../shared/activityUtils";
 
 interface MemoryCard {
   key: string;
@@ -27,14 +32,31 @@ export function MemoryGamePage() {
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
+  const backPath = getScopeBackPath(scope);
+  const timerKey = useMemo(
+    () => `memory:${scopeParam ?? "mixed"}`,
+    [scopeParam],
+  );
   const [deck, setDeck] = useState<MemoryCard[]>(() => makeDeck(sourceCards));
   const [open, setOpen] = useState<string[]>([]);
   const [matched, setMatched] = useState<Record<string, boolean>>({});
   const [moves, setMoves] = useState(0);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [completedElapsedMs, setCompletedElapsedMs] = useState<number | null>(
+    null,
+  );
   const closeTimer = useRef<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
   const matchedPairIdsRef = useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordTimedActivityBest = useProgressStore(
+    (state) => state.recordTimedActivityBest,
+  );
+  const bestTimeMs = useProgressStore(
+    (state) => state.timedActivityBests[timerKey],
+  );
   const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
@@ -43,6 +65,13 @@ export function MemoryGamePage() {
   const complete =
     deck.length > 0 && Object.keys(matched).length === deck.length / 2;
 
+  const resetTimer = () => {
+    startedAtRef.current = null;
+    setStartedAt(null);
+    setElapsedMs(0);
+    setCompletedElapsedMs(null);
+  };
+
   useEffect(() => {
     return () => {
       if (closeTimer.current) {
@@ -50,6 +79,15 @@ export function MemoryGamePage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!startedAt || completedElapsedMs !== null) return;
+
+    const tick = () => setElapsedMs(Date.now() - startedAt);
+    tick();
+    const timer = window.setInterval(tick, 100);
+    return () => window.clearInterval(timer);
+  }, [completedElapsedMs, startedAt]);
 
   useEffect(() => {
     if (closeTimer.current) {
@@ -61,7 +99,27 @@ export function MemoryGamePage() {
     setMatched({});
     matchedPairIdsRef.current = new Set();
     setMoves(0);
+    resetTimer();
   }, [sourceCards]);
+
+  const startTimer = () => {
+    if (startedAtRef.current !== null || completedElapsedMs !== null) return;
+    const now = Date.now();
+    startedAtRef.current = now;
+    setStartedAt(now);
+    setElapsedMs(0);
+  };
+
+  const stopTimer = () => {
+    const start = startedAtRef.current;
+    if (start === null) return;
+    const finishedMs = Date.now() - start;
+    startedAtRef.current = null;
+    setStartedAt(null);
+    setElapsedMs(finishedMs);
+    setCompletedElapsedMs(finishedMs);
+    recordTimedActivityBest(timerKey, finishedMs);
+  };
 
   const restart = () => {
     if (closeTimer.current) {
@@ -73,6 +131,7 @@ export function MemoryGamePage() {
     setMatched({});
     matchedPairIdsRef.current = new Set();
     setMoves(0);
+    resetTimer();
   };
 
   const flip = (card: MemoryCard, anchorEl?: HTMLElement | null) => {
@@ -83,6 +142,7 @@ export function MemoryGamePage() {
       open.length === 2
     )
       return;
+    startTimer();
     const nextOpen = [...open, card.key];
     setOpen(nextOpen);
     if (nextOpen.length === 2) {
@@ -106,6 +166,7 @@ export function MemoryGamePage() {
         const nextMatched = { ...matched, [second.pairId]: true };
         setMatched(nextMatched);
         if (Object.keys(nextMatched).length === deck.length / 2) {
+          stopTimer();
           recordDailyTaskCompletion(location.pathname);
         }
         closeTimer.current = window.setTimeout(() => {
@@ -125,8 +186,11 @@ export function MemoryGamePage() {
     return (
       <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <h1 className="text-xl font-extrabold">No memory pairs available</h1>
-        <Link className="mt-4 inline-flex text-primary hover:underline" to="/">
-          Back to dashboard
+        <Link
+          className="mt-4 inline-flex text-primary hover:underline"
+          to={backPath}
+        >
+          Back to overview
         </Link>
       </div>
     );
@@ -137,9 +201,9 @@ export function MemoryGamePage() {
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to="/"
+            to={backPath}
             className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
-            aria-label="Back to dashboard"
+            aria-label="Back to overview"
           >
             <ArrowLeft size={20} />
           </Link>
@@ -156,8 +220,17 @@ export function MemoryGamePage() {
       </div>
 
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="text-sm font-bold text-muted">Moves: {moves}</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold text-muted">
+            <span>Moves: {moves}</span>
+            <span>
+              Time: {formatElapsedTime(completedElapsedMs ?? elapsedMs)}
+            </span>
+            <span>
+              Personal best:{" "}
+              {bestTimeMs ? formatElapsedTime(bestTimeMs) : "Not set"}
+            </span>
+          </div>
           <p className="text-sm font-bold text-primary">
             {complete
               ? "Grid complete"

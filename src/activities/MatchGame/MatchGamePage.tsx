@@ -8,18 +8,25 @@ import { useReducedMotion } from "../../hooks/useReducedMotion";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
+  getScopeBackPath,
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
-import { shuffle, takeRound } from "../shared/activityUtils";
+import {
+  formatElapsedTime,
+  shuffle,
+  takeRound,
+} from "../shared/activityUtils";
 
 export function MatchGamePage() {
   const { scope: scopeParam } = useParams();
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
+  const backPath = getScopeBackPath(scope);
+  const timerKey = useMemo(() => `match:${scopeParam ?? "mixed"}`, [scopeParam]);
   const [round, setRound] = useState<Flashcard[]>(() =>
     takeRound(sourceCards, 6),
   );
@@ -34,10 +41,22 @@ export function MatchGamePage() {
   } | null>(null);
   const [moves, setMoves] = useState(0);
   const [feedback, setFeedback] = useState("");
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [completedElapsedMs, setCompletedElapsedMs] = useState<number | null>(
+    null,
+  );
   const wrongMatchTimer = useRef<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
   const matchedIdsRef = useRef<Set<string>>(new Set());
   const reducedMotion = useReducedMotion();
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
+  const recordTimedActivityBest = useProgressStore(
+    (state) => state.recordTimedActivityBest,
+  );
+  const bestTimeMs = useProgressStore(
+    (state) => state.timedActivityBests[timerKey],
+  );
   const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
     (state) => state.recordDailyTaskCompletion,
@@ -46,6 +65,13 @@ export function MatchGamePage() {
   const complete =
     Object.keys(matched).length === round.length && round.length > 0;
 
+  const resetTimer = () => {
+    startedAtRef.current = null;
+    setStartedAt(null);
+    setElapsedMs(0);
+    setCompletedElapsedMs(null);
+  };
+
   useEffect(() => {
     return () => {
       if (wrongMatchTimer.current) {
@@ -53,6 +79,15 @@ export function MatchGamePage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!startedAt || completedElapsedMs !== null) return;
+
+    const tick = () => setElapsedMs(Date.now() - startedAt);
+    tick();
+    const timer = window.setInterval(tick, 100);
+    return () => window.clearInterval(timer);
+  }, [completedElapsedMs, startedAt]);
 
   useEffect(() => {
     if (wrongMatchTimer.current) {
@@ -68,7 +103,33 @@ export function MatchGamePage() {
     setWrongMatch(null);
     setMoves(0);
     setFeedback("");
+    resetTimer();
   }, [sourceCards]);
+
+  const startTimer = () => {
+    if (startedAtRef.current !== null || completedElapsedMs !== null) return;
+    const now = Date.now();
+    startedAtRef.current = now;
+    setStartedAt(now);
+    setElapsedMs(0);
+  };
+
+  const stopTimer = () => {
+    const start = startedAtRef.current;
+    if (start === null) return;
+    const finishedMs = Date.now() - start;
+    startedAtRef.current = null;
+    setStartedAt(null);
+    setElapsedMs(finishedMs);
+    setCompletedElapsedMs(finishedMs);
+    recordTimedActivityBest(timerKey, finishedMs);
+  };
+
+  const chooseTerm = (cardId: string) => {
+    if (wrongMatch || matched[cardId]) return;
+    startTimer();
+    setSelectedTerm(cardId);
+  };
 
   const showWrongMatch = (termId: string, definitionId: string) => {
     if (wrongMatchTimer.current) {
@@ -95,6 +156,7 @@ export function MatchGamePage() {
     setWrongMatch(null);
     setMoves(0);
     setFeedback("");
+    resetTimer();
   };
 
   const chooseDefinition = (card: Flashcard, anchorEl?: HTMLElement | null) => {
@@ -122,6 +184,7 @@ export function MatchGamePage() {
       const nextMatched = { ...matched, [card.id]: true };
       setMatched(nextMatched);
       if (Object.keys(nextMatched).length === round.length) {
+        stopTimer();
         recordDailyTaskCompletion(location.pathname);
       }
       setFeedback("Correct match");
@@ -133,18 +196,33 @@ export function MatchGamePage() {
   };
 
   if (round.length === 0) {
-    return <EmptyActivity title="No matching pairs available" />;
+    return (
+      <EmptyActivity
+        title="No matching pairs available"
+        backPath={backPath}
+      />
+    );
   }
 
   return (
     <div className="space-y-4">
-      <ActivityHeader title="Matching game" subtitle={getScopeLabel(scope)} />
+      <ActivityHeader
+        title="Matching game"
+        subtitle={getScopeLabel(scope)}
+        backPath={backPath}
+      />
       <section className="rounded-lg border border-line bg-white p-5 shadow-soft">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-bold text-muted">
-            Match each term to its definition. Moves:{" "}
-            <span className="text-ink">{moves}</span>
-          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm font-bold text-muted">
+            <span>
+              Moves: <span className="text-ink">{moves}</span>
+            </span>
+            <span>Time: {formatElapsedTime(completedElapsedMs ?? elapsedMs)}</span>
+            <span>
+              Personal best:{" "}
+              {bestTimeMs ? formatElapsedTime(bestTimeMs) : "Not set"}
+            </span>
+          </div>
           <Button variant="ghost" onClick={restart}>
             <RotateCcw size={17} /> New round
           </Button>
@@ -161,7 +239,7 @@ export function MatchGamePage() {
                 <motion.button
                   key={card.id}
                   disabled={matched[card.id] || Boolean(wrongMatch)}
-                  onClick={() => setSelectedTerm(card.id)}
+                  onClick={() => chooseTerm(card.id)}
                   animate={
                     reducedMotion
                       ? undefined
@@ -240,16 +318,18 @@ export function MatchGamePage() {
 function ActivityHeader({
   title,
   subtitle,
+  backPath,
 }: {
   title: string;
   subtitle: string;
+  backPath: string;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-line bg-white p-4 shadow-soft">
       <Link
-        to="/"
+        to={backPath}
         className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
-        aria-label="Back to dashboard"
+        aria-label="Back to overview"
       >
         <ArrowLeft size={20} />
       </Link>
@@ -261,12 +341,21 @@ function ActivityHeader({
   );
 }
 
-function EmptyActivity({ title }: { title: string }) {
+function EmptyActivity({
+  title,
+  backPath,
+}: {
+  title: string;
+  backPath: string;
+}) {
   return (
     <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
       <h1 className="text-xl font-extrabold">{title}</h1>
-      <Link className="mt-4 inline-flex text-primary hover:underline" to="/">
-        Back to dashboard
+      <Link
+        className="mt-4 inline-flex text-primary hover:underline"
+        to={backPath}
+      >
+        Back to overview
       </Link>
     </div>
   );

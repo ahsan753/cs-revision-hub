@@ -30,7 +30,7 @@ const tierStyles: Record<
   silver: {
     label: "Silver Tier",
     ring: "from-slate-100 via-slate-400 to-slate-800",
-    chip: "bg-slate-100 text-slate-700",
+    chip: "bg-slate-100 text-slate-600",
     progress: "bg-slate-500",
     surface: "rank-card-surface-silver",
   },

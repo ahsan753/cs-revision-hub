@@ -99,6 +99,18 @@ export function getScopeLabel(scope: Scope): string {
     : "Subtopic practice";
 }
 
+export function getScopeBackPath(scope: Scope): string {
+  if (scope.kind === "mixed") return "/";
+  if (scope.kind === "unit") {
+    return contentIndex.unitsById.has(scope.unitId)
+      ? `/unit/${scope.unitId}`
+      : "/";
+  }
+
+  const unit = contentIndex.subtopicToUnit.get(scope.subtopicId);
+  return unit ? `/unit/${unit.id}/${scope.subtopicId}` : "/";
+}
+
 export function getFlashcardsForScope(scope: Scope): Flashcard[] {
   if (scope.kind === "mixed") return contentIndex.allFlashcards;
   if (scope.kind === "unit")

@@ -6,6 +6,7 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
+import type { ReactNode } from "react";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useXpFloat } from "../../hooks/useXpFloat";
@@ -118,15 +119,28 @@ export function SmartSessionPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm font-bold">
-          <span>
+          <SmartSessionMetric
+            id="smart-session-progress-help"
+            align="start"
+            className="text-ink"
+            description={`You are on item ${index + 1} out of ${plan.items.length} in this smart practice session.`}
+          >
             {index + 1} / {plan.items.length}
-          </span>
-          <span className="rounded-lg bg-indigo-50 px-3 py-2 text-primary">
+          </SmartSessionMetric>
+          <SmartSessionMetric
+            id="smart-session-due-help"
+            className="bg-indigo-50 text-primary"
+            description="Due items are questions or flashcards you have tried before and the app has scheduled for review now."
+          >
             {plan.dueCount} due
-          </span>
-          <span className="rounded-lg bg-emerald-50 px-3 py-2 text-emerald-700">
+          </SmartSessionMetric>
+          <SmartSessionMetric
+            id="smart-session-new-help"
+            className="bg-emerald-50 text-emerald-700"
+            description="New items are questions or flashcards you have not tried yet. They are added when the session needs fresh practice."
+          >
             {plan.newCount} new
-          </span>
+          </SmartSessionMetric>
         </div>
       </div>
 
@@ -157,6 +171,42 @@ export function SmartSessionPage() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+function SmartSessionMetric({
+  id,
+  align = "end",
+  className,
+  description,
+  children,
+}: {
+  id: string;
+  align?: "start" | "end";
+  className: string;
+  description: string;
+  children: ReactNode;
+}) {
+  const positionClass =
+    align === "start" ? "left-0 sm:left-auto sm:right-0" : "right-0";
+
+  return (
+    <span className="group relative inline-flex">
+      <span
+        tabIndex={0}
+        aria-describedby={id}
+        className={`rounded-lg px-3 py-2 outline-none focus-visible:shadow-[var(--focus)] ${className}`}
+      >
+        {children}
+      </span>
+      <span
+        id={id}
+        role="tooltip"
+        className={`pointer-events-none absolute top-full z-20 mt-2 hidden w-40 rounded-md border border-line bg-white px-3 py-2 text-left text-xs font-semibold leading-5 text-ink shadow-soft group-hover:block group-focus-within:block sm:w-64 ${positionClass}`}
+      >
+        {description}
+      </span>
+    </span>
   );
 }
 

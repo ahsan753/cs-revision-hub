@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Flashcard } from "../../data/contentTypes";
-import { normaliseText, takeRound } from "./activityUtils";
+import { formatElapsedTime, normaliseText, takeRound } from "./activityUtils";
 
 const cards: Flashcard[] = [
   { id: "a", subtopic: "1.1", term: "A", definition: "Alpha" },
@@ -20,5 +20,11 @@ describe("takeRound", () => {
 
   it("returns an empty round for empty source content", () => {
     expect(takeRound([], 6)).toEqual([]);
+  });
+});
+
+describe("formatElapsedTime", () => {
+  it("formats elapsed milliseconds as minutes, seconds, and tenths", () => {
+    expect(formatElapsedTime(65_430)).toBe("1:05.4");
   });
 });

@@ -11,3 +11,12 @@ export function takeRound(items: Flashcard[], target = 6) {
 export function normaliseText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
+
+export function formatElapsedTime(ms: number) {
+  const totalTenths = Math.max(0, Math.floor(ms / 100));
+  const minutes = Math.floor(totalTenths / 600);
+  const seconds = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+
+  return `${minutes}:${String(seconds).padStart(2, "0")}.${tenths}`;
+}

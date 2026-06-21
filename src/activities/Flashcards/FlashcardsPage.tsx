@@ -13,6 +13,7 @@ import { Button } from "../../components/ui/Button";
 import {
   getDefaultDifficulty,
   getFlashcardsForScope,
+  getScopeBackPath,
   getScopeLabel,
   parseScope,
 } from "../../content/contentIndex";
@@ -29,6 +30,7 @@ export function FlashcardsPage() {
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
+  const backPath = getScopeBackPath(scope);
   const [cards, setCards] = useState(sourceCards);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -83,8 +85,11 @@ export function FlashcardsPage() {
     return (
       <div className="rounded-lg border border-line bg-white p-6 shadow-soft">
         <h1 className="text-xl font-extrabold">No flashcards available</h1>
-        <Link className="mt-4 inline-flex text-primary hover:underline" to="/">
-          Back to dashboard
+        <Link
+          className="mt-4 inline-flex text-primary hover:underline"
+          to={backPath}
+        >
+          Back to overview
         </Link>
       </div>
     );
@@ -120,9 +125,9 @@ export function FlashcardsPage() {
       <div className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <Link
-            to="/"
+            to={backPath}
             className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100"
-            aria-label="Back to dashboard"
+            aria-label="Back to overview"
           >
             <ArrowLeft size={20} />
           </Link>

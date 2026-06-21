@@ -226,6 +226,7 @@ function toSnapshot(
     dailyProgress: state.dailyProgress,
     unlockedBadges: state.unlockedBadges,
     settings: state.settings,
+    timedActivityBests: state.timedActivityBests,
     itemProgress: state.itemProgress,
     history: state.history,
   };

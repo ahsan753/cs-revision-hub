@@ -94,7 +94,8 @@ export function SubtopicPage() {
             <div>
               <h2 className="text-xl font-extrabold">Quiz</h2>
               <p className="mt-1 text-sm text-muted">
-                Answer {mcqs.length} questions with explanations.
+                Try {mcqs.length} multiple-choice{" "}
+                {mcqs.length === 1 ? "question" : "questions"}.
               </p>
             </div>
           </div>
