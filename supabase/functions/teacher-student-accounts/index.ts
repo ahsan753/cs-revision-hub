@@ -16,6 +16,7 @@ type AccountRequest =
       students?: Array<{
         first_name?: string;
         last_name?: string;
+        class_name?: string;
       }>;
     }
   | {
@@ -30,6 +31,10 @@ type AccountRequest =
   | {
       action: "delete";
       student_id?: string;
+    }
+  | {
+      action: "delete_class";
+      class_id?: string;
     };
 
 type StudentClass = {
@@ -52,6 +57,7 @@ type StudentAccountImportError = {
   index: number;
   first_name: string;
   last_name: string;
+  class_name: string;
   error: string;
 };
 
@@ -110,6 +116,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (body.action === "delete_class") {
+      return jsonResponse(req, await deleteClass(admin, user.id, body));
+    }
+
     return jsonResponse(req, { error: "Invalid action" }, { status: 400 });
   } catch (error) {
     return jsonResponse(
@@ -142,29 +152,59 @@ async function bulkCreateStudentAccounts(
   teacherId: string,
   body: Extract<AccountRequest, { action: "bulk_create" }>,
 ) {
-  const classId = cleanUuid(body.class_id);
-  if (!classId) throw new Error("Choose a class for these students.");
-
+  const fallbackClassId = cleanUuid(body.class_id);
   const students = Array.isArray(body.students) ? body.students : [];
   if (!students.length) throw new Error("Add at least one student to import.");
   if (students.length > 100) {
     throw new Error("Import 100 students or fewer at a time.");
   }
 
-  const studentClass = await getTeacherClass(admin, teacherId, classId);
+  const hasSpreadsheetClasses = students.some((student) =>
+    cleanName(student.class_name),
+  );
+  if (!fallbackClassId && !hasSpreadsheetClasses) {
+    throw new Error("Choose a class or add a Class column to the spreadsheet.");
+  }
+
+  const fallbackClass = fallbackClassId
+    ? await getTeacherClass(admin, teacherId, fallbackClassId)
+    : null;
+  const classCache = await getTeacherClassCache(admin, teacherId);
   const created: CreatedStudentAccount[] = [];
   const errors: StudentAccountImportError[] = [];
 
   for (const [index, student] of students.entries()) {
     const firstName = cleanName(student.first_name);
     const lastName = cleanName(student.last_name);
+    const className = cleanName(student.class_name);
 
     if (!firstName || !lastName) {
       errors.push({
         index,
         first_name: firstName,
         last_name: lastName,
+        class_name: className,
         error: "First and last name are required.",
+      });
+      continue;
+    }
+
+    let studentClass = fallbackClass;
+    if (className) {
+      studentClass = await getOrCreateTeacherClass(
+        admin,
+        teacherId,
+        className,
+        classCache,
+      );
+    }
+    if (!studentClass) {
+      errors.push({
+        index,
+        first_name: firstName,
+        last_name: lastName,
+        class_name: className,
+        error: "Add a class name or choose a class before importing.",
       });
       continue;
     }
@@ -183,6 +223,7 @@ async function bulkCreateStudentAccounts(
         index,
         first_name: firstName,
         last_name: lastName,
+        class_name: className,
         error:
           error instanceof Error
             ? error.message
@@ -351,6 +392,67 @@ async function deleteStudentAccount(
   return { ok: true };
 }
 
+async function deleteClass(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+  body: Extract<AccountRequest, { action: "delete_class" }>,
+) {
+  const classId = cleanUuid(body.class_id);
+  if (!classId) throw new Error("Class is required.");
+
+  await getTeacherClass(admin, teacherId, classId);
+
+  const { data: students, error: studentsError } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("class_id", classId)
+    .eq("role", "student")
+    .returns<Array<{ id: string }>>();
+  if (studentsError) throw studentsError;
+
+  let deletedStudentAccounts = 0;
+  let removedStudents = 0;
+
+  for (const student of students ?? []) {
+    const {
+      data: { user },
+      error: userError,
+    } = await admin.auth.admin.getUserById(student.id);
+    if (userError) throw userError;
+
+    if (user?.email?.toLowerCase().endsWith(`@${studentAuthDomain}`)) {
+      const { error } = await admin.auth.admin.deleteUser(student.id);
+      if (error) throw error;
+      deletedStudentAccounts += 1;
+      continue;
+    }
+
+    const { error } = await admin
+      .from("profiles")
+      .update({
+        class_id: null,
+        year_group: null,
+        display_name: null,
+      })
+      .eq("id", student.id);
+    if (error) throw error;
+    removedStudents += 1;
+  }
+
+  const { error: deleteError } = await admin
+    .from("classes")
+    .delete()
+    .eq("id", classId)
+    .eq("teacher_id", teacherId);
+  if (deleteError) throw deleteError;
+
+  return {
+    ok: true,
+    deleted_student_accounts: deletedStudentAccounts,
+    removed_students: removedStudents,
+  };
+}
+
 async function requireTeacher(
   admin: ReturnType<typeof adminClient>,
   teacherId: string,
@@ -378,6 +480,64 @@ async function getTeacherClass(
   if (error) throw error;
   if (!data) throw new Error("Class not found.");
   return data;
+}
+
+async function getTeacherClassCache(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+) {
+  const { data, error } = await admin
+    .from("classes")
+    .select("id, name, year_group")
+    .eq("teacher_id", teacherId)
+    .returns<StudentClass[]>();
+  if (error) throw error;
+
+  return new Map(
+    (data ?? []).map((studentClass) => [
+      normaliseClassName(studentClass.name),
+      studentClass,
+    ]),
+  );
+}
+
+async function getOrCreateTeacherClass(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+  className: string,
+  classCache: Map<string, StudentClass>,
+) {
+  const cacheKey = normaliseClassName(className);
+  const existing = classCache.get(cacheKey);
+  if (existing) return existing;
+
+  const created = await createTeacherClass(admin, teacherId, className);
+  classCache.set(cacheKey, created);
+  return created;
+}
+
+async function createTeacherClass(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+  className: string,
+): Promise<StudentClass> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { data, error } = await admin
+      .from("classes")
+      .insert({
+        name: className,
+        year_group: inferYearGroup(className),
+        join_code: generateJoinCode(),
+        teacher_id: teacherId,
+      })
+      .select("id, name, year_group")
+      .single<StudentClass>();
+
+    if (!error && data) return data;
+    if (error?.code !== "23505") throw error;
+  }
+
+  throw new Error("Could not create class for imported students.");
 }
 
 async function requireTeacherOwnsStudent(
@@ -488,6 +648,24 @@ function cleanName(value: unknown) {
 
 function cleanUuid(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
+}
+
+function normaliseClassName(value: string) {
+  return cleanName(value).toLowerCase();
+}
+
+function inferYearGroup(className: string) {
+  const match = className.match(/\byear\s*(\d{1,2})\b/i);
+  return match ? `Year ${match[1]}` : "Imported";
+}
+
+function generateJoinCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(4);
+  crypto.getRandomValues(bytes);
+  return `CS-${Array.from(bytes, (byte) => chars[byte % chars.length]).join(
+    "",
+  )}`;
 }
 
 function slugName(value: string) {

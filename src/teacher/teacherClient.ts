@@ -67,6 +67,7 @@ export interface StudentAccountImportError {
   index: number;
   first_name: string;
   last_name: string;
+  class_name?: string;
   error: string;
 }
 
@@ -168,8 +169,8 @@ export async function bulkCreateManagedStudentAccounts({
   students,
   classId,
 }: {
-  students: Array<{ firstName: string; lastName: string }>;
-  classId: string;
+  students: Array<{ firstName: string; lastName: string; className?: string }>;
+  classId?: string;
 }) {
   const client = requireSupabase();
   const { data, error } =
@@ -182,6 +183,7 @@ export async function bulkCreateManagedStudentAccounts({
           students: students.map((student) => ({
             first_name: student.firstName,
             last_name: student.lastName,
+            class_name: student.className,
           })),
         },
       },
@@ -227,6 +229,17 @@ export async function deleteManagedStudentAccount(studentId: string) {
     body: {
       action: "delete",
       student_id: studentId,
+    },
+  });
+  if (error) throw error;
+}
+
+export async function deleteManagedClass(classId: string) {
+  const client = requireSupabase();
+  const { error } = await client.functions.invoke("teacher-student-accounts", {
+    body: {
+      action: "delete_class",
+      class_id: classId,
     },
   });
   if (error) throw error;

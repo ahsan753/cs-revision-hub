@@ -22,6 +22,7 @@ import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
 import { isKnown, useProgressStore } from "../../store/progressStore";
+import { shuffle } from "../shared/activityUtils";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
 
 interface QuizSession {
@@ -459,15 +460,17 @@ function sortQuizItems(
   progress: Record<string, ItemProgress>,
 ): MCQ[] {
   const now = Date.now();
-  return items
-    .map((item, order) => ({ item, order }))
-    .sort((a, b) => {
-      return (
-        getQuizPriority(a.item, progress, now) -
-          getQuizPriority(b.item, progress, now) || a.order - b.order
-      );
-    })
-    .map(({ item }) => item);
+  const priorityBuckets = new Map<number, MCQ[]>();
+  for (const item of items) {
+    const priority = getQuizPriority(item, progress, now);
+    priorityBuckets.set(priority, [
+      ...(priorityBuckets.get(priority) ?? []),
+      item,
+    ]);
+  }
+  return [...priorityBuckets.keys()]
+    .sort((a, b) => a - b)
+    .flatMap((priority) => shuffle(priorityBuckets.get(priority) ?? []));
 }
 
 function createQuizSession(

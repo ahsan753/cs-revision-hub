@@ -2,6 +2,7 @@ export interface StudentImportRow {
   rowNumber: number;
   firstName: string;
   lastName: string;
+  className: string;
 }
 
 export interface StudentImportResult {
@@ -14,13 +15,14 @@ type ColumnMap = {
   firstName?: number;
   lastName?: number;
   fullName?: number;
+  className?: number;
 };
 
 export const studentImportExampleRows = [
-  ["Surname", "Forename"],
-  ["Akseli", "Ece"],
-  ["Amador Lozano", "Jeronimo"],
-  ["Filho", "Pietro"],
+  ["First name", "Surname", "Class"],
+  ["Ece", "Akseli", "Year 10 CS Set 1"],
+  ["Jeronimo", "Amador Lozano", "Year 10 CS Set 1"],
+  ["Pietro", "Filho", "Year 11 CS Set 2"],
 ];
 
 export async function parseStudentWorkbook(
@@ -72,10 +74,14 @@ export async function parseStudentWorkbook(
       header.columns.fullName !== undefined
         ? cleanCell(row[header.columns.fullName])
         : "";
+    const className =
+      header.columns.className !== undefined
+        ? cleanCell(row[header.columns.className])
+        : "";
     const names =
       firstName || lastName ? { firstName, lastName } : splitFullName(fullName);
 
-    if (!names.firstName && !names.lastName) return;
+    if (!names.firstName && !names.lastName && !className) return;
     if (!names.firstName || !names.lastName) {
       errors.push(`Row ${rowNumber}: first name and surname are required.`);
       return;
@@ -85,6 +91,7 @@ export async function parseStudentWorkbook(
       rowNumber,
       firstName: names.firstName,
       lastName: names.lastName,
+      className,
     });
   });
 
@@ -99,8 +106,18 @@ export async function downloadStudentImportTemplate() {
   const XLSX = await import("xlsx");
   const workbook = XLSX.utils.book_new();
   const worksheet = XLSX.utils.aoa_to_sheet(studentImportExampleRows);
-  worksheet["!cols"] = [{ wch: 22 }, { wch: 18 }];
+  worksheet["!cols"] = [{ wch: 18 }, { wch: 22 }, { wch: 24 }];
+  worksheet["!autofilter"] = { ref: "A1:C1" };
   XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+  const helpSheet = XLSX.utils.aoa_to_sheet([
+    ["How to import"],
+    ["Keep the first row as headings."],
+    ["Add one student per row."],
+    ["Use the Class column to create or reuse classes automatically."],
+    ["Leave Class blank only when importing into a selected class."],
+  ]);
+  helpSheet["!cols"] = [{ wch: 64 }];
+  XLSX.utils.book_append_sheet(workbook, helpSheet, "Guide");
   XLSX.writeFile(workbook, "student-roster-import-example.xlsx");
 }
 
@@ -128,6 +145,11 @@ function mapColumns(row: unknown[]): ColumnMap {
     }
     if (["fullname", "studentname", "name"].includes(header)) {
       columns.fullName = index;
+    }
+    if (
+      ["class", "classname", "teachinggroup", "group", "set"].includes(header)
+    ) {
+      columns.className = index;
     }
     return columns;
   }, {});

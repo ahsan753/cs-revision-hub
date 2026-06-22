@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   BookOpenCheck,
@@ -24,6 +24,7 @@ import {
   bulkCreateManagedStudentAccounts,
   createClass,
   createManagedStudentAccount,
+  deleteManagedClass,
   deleteManagedStudentAccount,
   getTeacherClassActivity,
   getTeacherClassRoster,
@@ -47,6 +48,9 @@ export function TeacherPage() {
   const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingDeleteClass, setPendingDeleteClass] =
+    useState<TeacherClassSummary | null>(null);
+  const [deleteClassBusy, setDeleteClassBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -76,6 +80,24 @@ export function TeacherPage() {
     }),
     [classes],
   );
+
+  const confirmDeleteClass = async () => {
+    if (!pendingDeleteClass) return;
+    setDeleteClassBusy(true);
+    setMessage(null);
+    try {
+      await deleteManagedClass(pendingDeleteClass.id);
+      setPendingDeleteClass(null);
+      await refresh();
+      setMessage("Class deleted.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not delete class.",
+      );
+    } finally {
+      setDeleteClassBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -134,7 +156,13 @@ export function TeacherPage() {
 
         <div className="mt-4 space-y-3">
           {classes.length ? (
-            classes.map((item) => <ClassSummaryRow key={item.id} item={item} />)
+            classes.map((item) => (
+              <ClassSummaryRow
+                key={item.id}
+                item={item}
+                onDelete={() => setPendingDeleteClass(item)}
+              />
+            ))
           ) : (
             <EmptyState
               title="No classes yet"
@@ -143,12 +171,20 @@ export function TeacherPage() {
           )}
         </div>
       </section>
+
+      <ConfirmClassDeleteDialog
+        item={pendingDeleteClass}
+        busy={deleteClassBusy}
+        onCancel={() => setPendingDeleteClass(null)}
+        onConfirm={confirmDeleteClass}
+      />
     </div>
   );
 }
 
 export function TeacherClassPage() {
   const { classId } = useParams<{ classId: string }>();
+  const navigate = useNavigate();
   const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
   const [roster, setRoster] = useState<TeacherClassRosterRow[]>([]);
   const [activity, setActivity] = useState<TeacherClassActivityRow[]>([]);
@@ -157,7 +193,10 @@ export function TeacherClassPage() {
   const [loading, setLoading] = useState(true);
   const [pendingDelete, setPendingDelete] =
     useState<TeacherClassRosterRow | null>(null);
+  const [pendingDeleteClass, setPendingDeleteClass] =
+    useState<TeacherClassSummary | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteClassBusy, setDeleteClassBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!classId) return;
@@ -224,6 +263,23 @@ export function TeacherClassPage() {
     }
   };
 
+  const confirmDeleteClass = async () => {
+    if (!pendingDeleteClass) return;
+    setDeleteClassBusy(true);
+    setMessage(null);
+    try {
+      await deleteManagedClass(pendingDeleteClass.id);
+      setPendingDeleteClass(null);
+      navigate("/teacher");
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "Could not delete class.",
+      );
+    } finally {
+      setDeleteClassBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -234,10 +290,22 @@ export function TeacherClassPage() {
           <ArrowLeft aria-hidden="true" className="size-4" />
           Classes
         </Link>
-        <Button variant="secondary" onClick={() => void refresh()}>
-          <RefreshCcw aria-hidden="true" className="size-4" />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {currentClass ? (
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => setPendingDeleteClass(currentClass)}
+            >
+              <Trash2 aria-hidden="true" className="size-4" />
+              Delete class
+            </Button>
+          ) : null}
+          <Button variant="secondary" onClick={() => void refresh()}>
+            <RefreshCcw aria-hidden="true" className="size-4" />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       <PortalHeader
@@ -343,6 +411,12 @@ export function TeacherClassPage() {
         busy={deleteBusy}
         onCancel={() => setPendingDelete(null)}
         onConfirm={confirmDelete}
+      />
+      <ConfirmClassDeleteDialog
+        item={pendingDeleteClass}
+        busy={deleteClassBusy}
+        onCancel={() => setPendingDeleteClass(null)}
+        onConfirm={confirmDeleteClass}
       />
     </div>
   );
@@ -487,6 +561,16 @@ function StudentAccountPanel({
   }, [classes, lockedClassId]);
 
   const selectedClass = classes.find((item) => item.id === classId);
+  const importUsesSpreadsheetClasses = importRows.some(
+    (student) => student.className.trim().length > 0,
+  );
+  const importNeedsSelectedClass =
+    importRows.length > 0 &&
+    !classId.trim() &&
+    importRows.some((student) => !student.className.trim());
+  const importTargetLabel = importUsesSpreadsheetClasses
+    ? "Classes from spreadsheet"
+    : (selectedClass?.name ?? "Choose class");
 
   const handleImportFile = async (file: File | null) => {
     setImportedAccounts([]);
@@ -521,7 +605,7 @@ function StudentAccountPanel({
     onMessage(null);
     try {
       const result = await bulkCreateManagedStudentAccounts({
-        classId,
+        classId: classId.trim() || undefined,
         students: importRows,
       });
       setImportedAccounts(result.created);
@@ -679,8 +763,14 @@ function StudentAccountPanel({
           </Button>
         </div>
 
+        <p className="mt-3 text-sm font-bold leading-6 text-muted">
+          Upload a roster with First name, Surname, and Class columns. The app
+          will create any new classes from the Class column and place each
+          student into the right class automatically.
+        </p>
+
         <div className="mt-3 overflow-x-auto rounded-lg border border-line">
-          <table className="min-w-[320px] w-full text-left text-xs font-bold">
+          <table className="min-w-[480px] w-full text-left text-xs font-bold">
             <thead className="bg-slate-50 text-muted">
               <tr>
                 {studentImportExampleRows[0].map((heading) => (
@@ -721,7 +811,7 @@ function StudentAccountPanel({
             type="button"
             disabled={
               importBusy ||
-              !classId.trim() ||
+              importNeedsSelectedClass ||
               importRows.length === 0 ||
               importRows.length > 100
             }
@@ -738,7 +828,7 @@ function StudentAccountPanel({
                 {importRows.length} ready to import
               </p>
               <p className="text-xs font-bold text-muted">
-                {selectedClass?.name ?? "Choose class"}
+                {importTargetLabel}
               </p>
             </div>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -747,7 +837,12 @@ function StudentAccountPanel({
                   key={`${student.rowNumber}-${student.firstName}-${student.lastName}`}
                   className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold"
                 >
-                  {student.firstName} {student.lastName}
+                  <span className="block">
+                    {student.firstName} {student.lastName}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted">
+                    {student.className || selectedClass?.name || "No class"}
+                  </span>
                 </div>
               ))}
             </div>
@@ -794,9 +889,10 @@ function StudentAccountPanel({
               {importedAccounts.map((account) => (
                 <div
                   key={account.student_id}
-                  className="grid gap-1 border-b border-line px-3 py-2 text-xs font-bold last:border-0 md:grid-cols-[1fr_1fr_1fr]"
+                  className="grid gap-1 border-b border-line px-3 py-2 text-xs font-bold last:border-0 md:grid-cols-[1fr_0.8fr_1fr_1fr]"
                 >
                   <span>{account.full_name}</span>
+                  <span>{account.class_name}</span>
                   <span className="font-mono">
                     {studentLoginId(account.username)}
                   </span>
@@ -811,24 +907,41 @@ function StudentAccountPanel({
   );
 }
 
-function ClassSummaryRow({ item }: { item: TeacherClassSummary }) {
+function ClassSummaryRow({
+  item,
+  onDelete,
+}: {
+  item: TeacherClassSummary;
+  onDelete: () => void;
+}) {
   return (
-    <Link
-      to={`/teacher/classes/${item.id}`}
-      className="grid gap-3 rounded-lg border border-line bg-slate-50 p-4 transition hover:border-primary hover:bg-white md:grid-cols-[1.2fr_0.6fr_0.6fr_0.7fr_auto] md:items-center"
-    >
-      <div>
-        <p className="text-sm font-bold text-muted">{item.year_group}</p>
-        <h3 className="mt-1 text-lg font-extrabold">{item.name}</h3>
-      </div>
-      <Metric label="Students" value={item.student_count} />
-      <Metric label="Average XP" value={item.average_xp} />
-      <Metric
-        label="Latest activity"
-        value={formatDateTime(item.latest_activity_at)}
-      />
-      <ChevronRight aria-hidden="true" className="size-5 text-primary" />
-    </Link>
+    <div className="grid gap-3 rounded-lg border border-line bg-slate-50 p-4 transition hover:border-primary hover:bg-white md:grid-cols-[1fr_auto] md:items-center">
+      <Link
+        to={`/teacher/classes/${item.id}`}
+        className="grid gap-3 md:grid-cols-[1.2fr_0.6fr_0.6fr_0.7fr_auto] md:items-center"
+      >
+        <div>
+          <p className="text-sm font-bold text-muted">{item.year_group}</p>
+          <h3 className="mt-1 text-lg font-extrabold">{item.name}</h3>
+        </div>
+        <Metric label="Students" value={item.student_count} />
+        <Metric label="Average XP" value={item.average_xp} />
+        <Metric
+          label="Latest activity"
+          value={formatDateTime(item.latest_activity_at)}
+        />
+        <ChevronRight aria-hidden="true" className="size-5 text-primary" />
+      </Link>
+      <Button
+        type="button"
+        variant="danger"
+        className="min-h-10 px-3 py-2"
+        onClick={onDelete}
+      >
+        <Trash2 aria-hidden="true" className="size-4" />
+        Delete
+      </Button>
+    </div>
   );
 }
 
@@ -1159,6 +1272,64 @@ function ConfirmDeleteDialog({
   );
 }
 
+function ConfirmClassDeleteDialog({
+  item,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  item: TeacherClassSummary | null;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => Promise<void>;
+}) {
+  if (!item) return null;
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/40 px-4">
+      <div className="w-full max-w-md rounded-lg border border-line bg-white p-5 shadow-pop">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 place-items-center rounded-lg bg-rose-50 text-rose-700">
+            <Trash2 aria-hidden="true" className="size-5" />
+          </span>
+          <div>
+            <h2 className="text-lg font-extrabold">Delete class</h2>
+            <p className="text-sm font-bold text-muted">{item.name}</p>
+          </div>
+        </div>
+        <p className="mt-4 text-sm font-bold text-muted">
+          This permanently deletes the class. Any CS Revision Hub student logins
+          in this class and their ranked history will also be deleted.
+          School-email students are removed from the class, not deleted.
+        </p>
+        {item.student_count > 0 ? (
+          <p className="mt-3 rounded-lg bg-rose-50 p-3 text-sm font-extrabold text-rose-700">
+            {item.student_count} student{item.student_count === 1 ? "" : "s"}{" "}
+            will be affected.
+          </p>
+        ) : null}
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={busy}
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy}
+            onClick={() => void onConfirm()}
+          >
+            {busy ? "Deleting..." : "Delete class"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-lg bg-slate-50 p-4">
@@ -1221,6 +1392,7 @@ async function copyStudentLogins(accounts: CreatedStudentAccount[]) {
       .map((account) =>
         [
           account.full_name,
+          `Class: ${account.class_name}`,
           `Username: ${studentLoginId(account.username)}`,
           `Password: ${account.password}`,
         ].join("\n"),

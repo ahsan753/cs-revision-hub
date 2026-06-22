@@ -14,11 +14,12 @@ describe("parseStudentWorkbook", () => {
 
     expect(result.errors).toEqual([]);
     expect(result.students).toEqual([
-      { rowNumber: 2, firstName: "Ece", lastName: "Akseli" },
+      { rowNumber: 2, firstName: "Ece", lastName: "Akseli", className: "" },
       {
         rowNumber: 3,
         firstName: "Jeronimo",
         lastName: "Amador Lozano",
+        className: "",
       },
     ]);
   });
@@ -35,7 +36,34 @@ describe("parseStudentWorkbook", () => {
     expect(result.students[0]).toMatchObject({
       firstName: "Pietro",
       lastName: "Filho",
+      className: "",
     });
+  });
+
+  it("reads class names for automatic class sorting", async () => {
+    const result = await parseStudentWorkbook(
+      workbookBuffer([
+        ["First name", "Surname", "Class"],
+        ["Ece", "Akseli", "Year 10 CS Set 1"],
+        ["Pietro", "Filho", "Year 11 CS Set 2"],
+      ]),
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(result.students).toEqual([
+      {
+        rowNumber: 2,
+        firstName: "Ece",
+        lastName: "Akseli",
+        className: "Year 10 CS Set 1",
+      },
+      {
+        rowNumber: 3,
+        firstName: "Pietro",
+        lastName: "Filho",
+        className: "Year 11 CS Set 2",
+      },
+    ]);
   });
 
   it("reports incomplete student rows", async () => {

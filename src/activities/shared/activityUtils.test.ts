@@ -1,6 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Flashcard } from "../../data/contentTypes";
-import { formatElapsedTime, normaliseText, takeRound } from "./activityUtils";
+import {
+  formatElapsedTime,
+  normaliseText,
+  shuffle,
+  takeRound,
+} from "./activityUtils";
 
 const cards: Flashcard[] = [
   { id: "a", subtopic: "1.1", term: "A", definition: "Alpha" },
@@ -20,6 +25,27 @@ describe("takeRound", () => {
 
   it("returns an empty round for empty source content", () => {
     expect(takeRound([], 6)).toEqual([]);
+  });
+});
+
+describe("shuffle", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns the same items without mutating the original array", () => {
+    const source = ["a", "b", "c"];
+
+    const shuffled = shuffle(source);
+
+    expect(source).toEqual(["a", "b", "c"]);
+    expect([...shuffled].sort()).toEqual(source);
+  });
+
+  it("uses random swaps to change item order", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    expect(shuffle(["a", "b", "c"])).toEqual(["b", "c", "a"]);
   });
 });
 

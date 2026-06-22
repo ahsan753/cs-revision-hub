@@ -42,7 +42,7 @@ export function CodeLabPage() {
   const { scope: scopeParam } = useParams();
   const location = useLocation();
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
-  const tasks = useMemo(() => getCodeTasksForScope(scope), [scope]);
+  const tasks = useMemo(() => shuffle(getCodeTasksForScope(scope)), [scope]);
   const backPath = getScopeBackPath(scope);
   const [index, setIndex] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, CodeLabDraft>>({});
@@ -81,8 +81,9 @@ export function CodeLabPage() {
     anchorEl?: HTMLElement | null,
   ) => {
     if (!task) return;
-    const answerRevealedBeforeAttempt =
-      revealedAnswerTaskIdsRef.current.has(task.id);
+    const answerRevealedBeforeAttempt = revealedAnswerTaskIdsRef.current.has(
+      task.id,
+    );
     if (correct && correctTaskIdsRef.current.has(task.id)) return;
     if (correct) correctTaskIdsRef.current.add(task.id);
     if (!correct) revealedAnswerTaskIdsRef.current.add(task.id);
