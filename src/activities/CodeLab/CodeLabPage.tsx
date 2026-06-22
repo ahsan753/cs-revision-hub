@@ -6,8 +6,8 @@ import {
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { Reorder, useDragControls } from "framer-motion";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Reorder } from "framer-motion";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
@@ -539,25 +539,16 @@ function Parsons({
         className="space-y-2"
       >
         {items.map((item, index) => (
-          <Fragment key={item.id}>
-            {hasDistractors && index === task.lines.length ? (
-              <div className="flex items-center gap-3 py-1">
-                <div className="h-px flex-1 bg-amber-300" />
-                <div className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold uppercase text-amber-800">
-                  Not used in this program
-                </div>
-                <div className="h-px flex-1 bg-amber-300" />
-              </div>
-            ) : null}
-            <ParsonsLine
-              item={item}
-              index={index}
-              answerLength={task.lines.length}
-              result={result}
-              onKeyboardMove={moveItem}
-              isUnusedArea={index >= task.lines.length}
-            />
-          </Fragment>
+          <ParsonsLine
+            key={item.id}
+            item={item}
+            index={index}
+            answerLength={task.lines.length}
+            result={result}
+            onKeyboardMove={moveItem}
+            isUnusedArea={index >= task.lines.length}
+            showUnusedDivider={hasDistractors && index === task.lines.length}
+          />
         ))}
       </Reorder.Group>
       <div className="flex gap-2">
@@ -605,6 +596,7 @@ function ParsonsLine({
   result,
   onKeyboardMove,
   isUnusedArea,
+  showUnusedDivider,
 }: {
   item: ParsonsLineItem;
   index: number;
@@ -612,8 +604,8 @@ function ParsonsLine({
   result: CodeLabResult | null;
   onKeyboardMove: (from: number, direction: -1 | 1) => void;
   isUnusedArea: boolean;
+  showUnusedDivider: boolean;
 }) {
-  const dragControls = useDragControls();
   const isLocked = Boolean(result?.correct);
 
   return (
@@ -622,40 +614,53 @@ function ParsonsLine({
       value={item}
       layout="position"
       drag={isLocked ? false : "y"}
-      dragControls={dragControls}
-      dragListener={false}
-      whileDrag={{ scale: 1.01 }}
-      className={`flex items-center gap-2 rounded-lg border p-3 transition ${parsonsLineClass(index, answerLength, result)}`}
+      dragListener={!isLocked}
+      whileDrag={{
+        scale: 1.015,
+        boxShadow: "0 18px 35px rgba(15, 23, 42, 0.16)",
+      }}
+      transition={{ type: "spring", stiffness: 520, damping: 38 }}
+      tabIndex={isLocked ? -1 : 0}
+      role="button"
+      aria-label={`Drag line ${index + 1}: ${item.line}. Use arrow keys to reorder.`}
+      onKeyDown={(event) => {
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          onKeyboardMove(index, -1);
+        }
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          onKeyboardMove(index, 1);
+        }
+      }}
+      className="group cursor-grab touch-none space-y-2 outline-none active:cursor-grabbing"
     >
-      <button
-        type="button"
-        className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-        onPointerDown={(event) => {
-          if (!isLocked) dragControls.start(event);
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowUp") {
-            event.preventDefault();
-            onKeyboardMove(index, -1);
-          }
-          if (event.key === "ArrowDown") {
-            event.preventDefault();
-            onKeyboardMove(index, 1);
-          }
-        }}
-        aria-label={`Drag line ${index + 1}; use arrow keys to reorder`}
-        disabled={isLocked}
-      >
-        <GripVertical size={18} aria-hidden="true" />
-      </button>
-      <code className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm">
-        {item.line}
-      </code>
-      {isUnusedArea ? (
-        <span className="hidden shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-extrabold uppercase text-amber-800 sm:inline">
-          Not used
-        </span>
+      {showUnusedDivider ? (
+        <div className="flex items-center gap-3 py-1">
+          <div className="h-px flex-1 bg-amber-300" />
+          <div className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold uppercase text-amber-800">
+            Not used in this program
+          </div>
+          <div className="h-px flex-1 bg-amber-300" />
+        </div>
       ) : null}
+      <div
+        className={`flex items-center gap-2 rounded-lg border p-3 transition group-focus-visible:ring-2 group-focus-visible:ring-primary group-focus-visible:ring-offset-2 ${parsonsLineClass(index, answerLength, result)}`}
+      >
+        <GripVertical
+          className="shrink-0 text-slate-400 transition group-hover:text-primary"
+          size={18}
+          aria-hidden="true"
+        />
+        <code className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm">
+          {item.line}
+        </code>
+        {isUnusedArea ? (
+          <span className="hidden shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-extrabold uppercase text-amber-800 sm:inline">
+            Not used
+          </span>
+        ) : null}
+      </div>
     </Reorder.Item>
   );
 }
