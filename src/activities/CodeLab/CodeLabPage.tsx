@@ -1,13 +1,13 @@
 import {
-  ArrowDown,
   ArrowLeft,
-  ArrowUp,
   CheckCircle2,
   Code2,
+  GripVertical,
   RotateCcw,
   XCircle,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Reorder, useDragControls } from "framer-motion";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
@@ -30,10 +30,11 @@ import { normaliseText, shuffle } from "../shared/activityUtils";
 import { shouldSubmitRankedAttempt } from "../shared/rewardEligibility";
 
 type CodeLabResult = { correct: boolean; message: string };
+type ParsonsLineItem = { id: string; line: string };
 type CodeLabDraft = {
   predictAnswer?: string;
   blankAnswers?: Record<string, string>;
-  parsonsLines?: string[];
+  parsonsItems?: ParsonsLineItem[];
   result?: CodeLabResult | null;
 };
 
@@ -481,28 +482,42 @@ function Parsons({
     () => shuffle([...task.lines, ...(task.distractors ?? [])]),
     [task],
   );
-  const lines = draft.parsonsLines ?? fallbackLines;
-  const move = (from: number, direction: -1 | 1) => {
-    const to = from + direction;
-    if (to < 0 || to >= lines.length) return;
-    const next = [...lines];
-    [next[from], next[to]] = [next[to], next[from]];
+  const fallbackItems = useMemo(
+    () =>
+      fallbackLines.map((line, index) => ({
+        id: `${task.id}-${index}`,
+        line,
+      })),
+    [fallbackLines, task.id],
+  );
+  const items = draft.parsonsItems ?? fallbackItems;
+  const lines = items.map((item) => item.line);
+  const hasDistractors = items.length > task.lines.length;
+  const reorder = (next: ParsonsLineItem[]) => {
+    if (result?.correct) return;
     updateDraft({
-      parsonsLines: next,
+      parsonsItems: next,
       result: null,
     });
+  };
+  const moveItem = (from: number, direction: -1 | 1) => {
+    const to = from + direction;
+    if (result?.correct || to < 0 || to >= items.length) return;
+    const next = [...items];
+    [next[from], next[to]] = [next[to], next[from]];
+    reorder(next);
   };
   const check = (anchorEl?: HTMLElement | null) => {
     const used = lines.slice(0, task.lines.length);
     const correct =
       used.length === task.lines.length &&
       used.every((line, i) => line === task.lines[i]);
-    updateDraft({ parsonsLines: lines });
+    updateDraft({ parsonsItems: items });
     onResult(
       correct,
       correct
         ? "The algorithm is in the correct order."
-        : "Move the correct lines to the top in the right order. Distractors should stay below.",
+        : "Drag the correct lines to the top in the right order. Distractors should stay below.",
       { kind: "code-parsons", lines },
       anchorEl,
     );
@@ -510,37 +525,41 @@ function Parsons({
   return (
     <div className="space-y-4">
       <p className="text-sm font-bold text-muted">
-        Move the correct lines into order at the top. Extra distractor lines can
-        remain below.
+        Drag the lines needed for the program into the highlighted answer area.
+        Any lines below the divider are not used.
       </p>
-      <div className="space-y-2">
-        {lines.map((line, index) => (
-          <div
-            key={`${line}-${index}`}
-            className={`flex items-center gap-2 rounded-lg border p-3 transition ${parsonsLineClass(index, task.lines.length, result)}`}
-          >
-            <code className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm">
-              {line}
-            </code>
-            <button
-              className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white"
-              onClick={() => move(index, -1)}
-              aria-label="Move line up"
-              disabled={result?.correct}
-            >
-              <ArrowUp size={17} />
-            </button>
-            <button
-              className="grid h-9 w-9 place-items-center rounded-lg hover:bg-white"
-              onClick={() => move(index, 1)}
-              aria-label="Move line down"
-              disabled={result?.correct}
-            >
-              <ArrowDown size={17} />
-            </button>
-          </div>
-        ))}
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-3 text-xs font-extrabold uppercase text-indigo-700">
+        Program answer: top {task.lines.length} lines are checked
       </div>
+      <Reorder.Group
+        as="div"
+        axis="y"
+        values={items}
+        onReorder={reorder}
+        className="space-y-2"
+      >
+        {items.map((item, index) => (
+          <Fragment key={item.id}>
+            {hasDistractors && index === task.lines.length ? (
+              <div className="flex items-center gap-3 py-1">
+                <div className="h-px flex-1 bg-amber-300" />
+                <div className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-extrabold uppercase text-amber-800">
+                  Not used in this program
+                </div>
+                <div className="h-px flex-1 bg-amber-300" />
+              </div>
+            ) : null}
+            <ParsonsLine
+              item={item}
+              index={index}
+              answerLength={task.lines.length}
+              result={result}
+              onKeyboardMove={moveItem}
+              isUnusedArea={index >= task.lines.length}
+            />
+          </Fragment>
+        ))}
+      </Reorder.Group>
       <div className="flex gap-2">
         <Button
           variant={result ? (result.correct ? "success" : "danger") : "primary"}
@@ -561,10 +580,13 @@ function Parsons({
           disabled={result?.correct}
           onClick={() => {
             updateDraft({
-              parsonsLines: shuffle([
+              parsonsItems: shuffle([
                 ...task.lines,
                 ...(task.distractors ?? []),
-              ]),
+              ]).map((line, index) => ({
+                id: `${task.id}-shuffle-${Date.now()}-${index}`,
+                line,
+              })),
               result: null,
             });
           }}
@@ -573,6 +595,68 @@ function Parsons({
         </Button>
       </div>
     </div>
+  );
+}
+
+function ParsonsLine({
+  item,
+  index,
+  answerLength,
+  result,
+  onKeyboardMove,
+  isUnusedArea,
+}: {
+  item: ParsonsLineItem;
+  index: number;
+  answerLength: number;
+  result: CodeLabResult | null;
+  onKeyboardMove: (from: number, direction: -1 | 1) => void;
+  isUnusedArea: boolean;
+}) {
+  const dragControls = useDragControls();
+  const isLocked = Boolean(result?.correct);
+
+  return (
+    <Reorder.Item
+      as="div"
+      value={item}
+      layout="position"
+      drag={isLocked ? false : "y"}
+      dragControls={dragControls}
+      dragListener={false}
+      whileDrag={{ scale: 1.01 }}
+      className={`flex items-center gap-2 rounded-lg border p-3 transition ${parsonsLineClass(index, answerLength, result)}`}
+    >
+      <button
+        type="button"
+        className="grid h-9 w-9 shrink-0 touch-none place-items-center rounded-lg text-slate-400 hover:bg-white hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        onPointerDown={(event) => {
+          if (!isLocked) dragControls.start(event);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            onKeyboardMove(index, -1);
+          }
+          if (event.key === "ArrowDown") {
+            event.preventDefault();
+            onKeyboardMove(index, 1);
+          }
+        }}
+        aria-label={`Drag line ${index + 1}; use arrow keys to reorder`}
+        disabled={isLocked}
+      >
+        <GripVertical size={18} aria-hidden="true" />
+      </button>
+      <code className="min-w-0 flex-1 whitespace-pre-wrap font-mono text-sm">
+        {item.line}
+      </code>
+      {isUnusedArea ? (
+        <span className="hidden shrink-0 rounded-full bg-amber-100 px-2 py-1 text-xs font-extrabold uppercase text-amber-800 sm:inline">
+          Not used
+        </span>
+      ) : null}
+    </Reorder.Item>
   );
 }
 
@@ -587,7 +671,7 @@ function parsonsLineClass(
     return "border-rose-200 bg-rose-50";
   return index < answerLength
     ? "border-indigo-200 bg-indigo-50"
-    : "border-line bg-slate-50";
+    : "border-amber-200 bg-amber-50/70";
 }
 
 function CodeBlock({ code }: { code: string }) {

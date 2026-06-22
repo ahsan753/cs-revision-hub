@@ -5,12 +5,15 @@ import {
   BookOpenCheck,
   ChevronRight,
   Clipboard,
+  Download,
+  FileSpreadsheet,
   KeyRound,
   Pencil,
   Plus,
   RefreshCcw,
   ShieldAlert,
   Trash2,
+  Upload,
   UserPlus,
   Users,
 } from "lucide-react";
@@ -18,6 +21,7 @@ import { studentLoginId } from "../auth/studentCredentials";
 import { Button } from "../components/ui/Button";
 import { contentIndex } from "../content/contentIndex";
 import {
+  bulkCreateManagedStudentAccounts,
   createClass,
   createManagedStudentAccount,
   deleteManagedStudentAccount,
@@ -32,6 +36,12 @@ import {
   type TeacherClassSummary,
   type TeacherClassWeakAreaRow,
 } from "../teacher/teacherClient";
+import {
+  downloadStudentImportTemplate,
+  parseStudentWorkbook,
+  studentImportExampleRows,
+  type StudentImportRow,
+} from "../teacher/studentImport";
 
 export function TeacherPage() {
   const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
@@ -463,13 +473,83 @@ function StudentAccountPanel({
   const [classId, setClassId] = useState(lockedClassId ?? classes[0]?.id ?? "");
   const [latestAccount, setLatestAccount] =
     useState<CreatedStudentAccount | null>(null);
+  const [importFileName, setImportFileName] = useState("");
+  const [importRows, setImportRows] = useState<StudentImportRow[]>([]);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
+  const [importedAccounts, setImportedAccounts] = useState<
+    CreatedStudentAccount[]
+  >([]);
   const [busy, setBusy] = useState(false);
+  const [importBusy, setImportBusy] = useState(false);
 
   useEffect(() => {
     setClassId((current) => lockedClassId ?? (current || classes[0]?.id || ""));
   }, [classes, lockedClassId]);
 
   const selectedClass = classes.find((item) => item.id === classId);
+
+  const handleImportFile = async (file: File | null) => {
+    setImportedAccounts([]);
+    setImportRows([]);
+    setImportErrors([]);
+    setImportFileName(file?.name ?? "");
+    onMessage(null);
+
+    if (!file) return;
+
+    try {
+      const result = await parseStudentWorkbook(await file.arrayBuffer());
+      setImportRows(result.students);
+      setImportErrors(result.errors);
+      if (result.students.length) {
+        onMessage(
+          `Found ${result.students.length} student${
+            result.students.length === 1 ? "" : "s"
+          } in ${result.sheetName || file.name}.`,
+        );
+      }
+    } catch (error) {
+      setImportErrors([
+        error instanceof Error ? error.message : "Could not read the file.",
+      ]);
+    }
+  };
+
+  const importStudents = async () => {
+    setImportBusy(true);
+    setImportedAccounts([]);
+    onMessage(null);
+    try {
+      const result = await bulkCreateManagedStudentAccounts({
+        classId,
+        students: importRows,
+      });
+      setImportedAccounts(result.created);
+      setImportRows([]);
+      setImportErrors(
+        result.errors.map(
+          (item) =>
+            `Row ${importRows[item.index]?.rowNumber ?? item.index + 1}: ${
+              item.error
+            }`,
+        ),
+      );
+      await onCreated();
+      onMessage(
+        `Imported ${result.created.length} student login${
+          result.created.length === 1 ? "" : "s"
+        }.`,
+      );
+    } catch (error) {
+      onMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not import student logins.",
+      );
+    } finally {
+      setImportBusy(false);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -578,6 +658,155 @@ function StudentAccountPanel({
           </div>
         </div>
       ) : null}
+
+      <div className="mt-5 border-t border-line pt-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet
+              aria-hidden="true"
+              className="size-5 text-primary"
+            />
+            <h3 className="text-base font-extrabold">Import spreadsheet</h3>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-10 px-3 py-2"
+            onClick={() => void downloadStudentImportTemplate()}
+          >
+            <Download aria-hidden="true" className="size-4" />
+            Example
+          </Button>
+        </div>
+
+        <div className="mt-3 overflow-x-auto rounded-lg border border-line">
+          <table className="min-w-[320px] w-full text-left text-xs font-bold">
+            <thead className="bg-slate-50 text-muted">
+              <tr>
+                {studentImportExampleRows[0].map((heading) => (
+                  <th key={heading} className="px-3 py-2">
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {studentImportExampleRows.slice(1).map((row) => (
+                <tr key={row.join("|")} className="border-t border-line">
+                  {row.map((cell) => (
+                    <td key={cell} className="px-3 py-2">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-dashed border-line bg-slate-50 px-3 text-sm font-bold text-muted hover:border-primary hover:text-primary">
+            <Upload aria-hidden="true" className="size-4" />
+            <span>{importFileName || "Choose .xlsx, .xls, or .csv file"}</span>
+            <input
+              className="sr-only"
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              onChange={(event) =>
+                void handleImportFile(event.currentTarget.files?.[0] ?? null)
+              }
+            />
+          </label>
+          <Button
+            type="button"
+            disabled={
+              importBusy ||
+              !classId.trim() ||
+              importRows.length === 0 ||
+              importRows.length > 100
+            }
+            onClick={() => void importStudents()}
+          >
+            {importBusy ? "Importing..." : `Import ${importRows.length || ""}`}
+          </Button>
+        </div>
+
+        {importRows.length ? (
+          <div className="mt-4 rounded-lg bg-slate-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-extrabold text-ink">
+                {importRows.length} ready to import
+              </p>
+              <p className="text-xs font-bold text-muted">
+                {selectedClass?.name ?? "Choose class"}
+              </p>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {importRows.slice(0, 6).map((student) => (
+                <div
+                  key={`${student.rowNumber}-${student.firstName}-${student.lastName}`}
+                  className="rounded-lg border border-line bg-white px-3 py-2 text-sm font-bold"
+                >
+                  {student.firstName} {student.lastName}
+                </div>
+              ))}
+            </div>
+            {importRows.length > 6 ? (
+              <p className="mt-2 text-xs font-bold text-muted">
+                +{importRows.length - 6} more
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {importErrors.length ? (
+          <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">
+            {importErrors.slice(0, 4).map((error) => (
+              <p key={error}>{error}</p>
+            ))}
+            {importErrors.length > 4 ? (
+              <p>+{importErrors.length - 4} more rows need checking.</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {importedAccounts.length ? (
+          <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-extrabold text-emerald-800">
+                {importedAccounts.length} logins created
+              </p>
+              <Button
+                variant="success"
+                type="button"
+                className="min-h-10 px-3 py-2"
+                onClick={() =>
+                  void copyStudentLogins(importedAccounts).then(() =>
+                    onMessage("Imported student logins copied."),
+                  )
+                }
+              >
+                <Clipboard aria-hidden="true" className="size-4" />
+                Copy all
+              </Button>
+            </div>
+            <div className="mt-3 max-h-56 overflow-auto rounded-lg bg-white">
+              {importedAccounts.map((account) => (
+                <div
+                  key={account.student_id}
+                  className="grid gap-1 border-b border-line px-3 py-2 text-xs font-bold last:border-0 md:grid-cols-[1fr_1fr_1fr]"
+                >
+                  <span>{account.full_name}</span>
+                  <span className="font-mono">
+                    {studentLoginId(account.username)}
+                  </span>
+                  <span className="font-mono">{account.password}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -984,6 +1213,20 @@ async function copyStudentLogin({
   ];
   if (password) lines.push(`Password: ${password}`);
   await navigator.clipboard.writeText(lines.join("\n"));
+}
+
+async function copyStudentLogins(accounts: CreatedStudentAccount[]) {
+  await navigator.clipboard.writeText(
+    accounts
+      .map((account) =>
+        [
+          account.full_name,
+          `Username: ${studentLoginId(account.username)}`,
+          `Password: ${account.password}`,
+        ].join("\n"),
+      )
+      .join("\n\n"),
+  );
 }
 
 function getContentLabel(itemId: string) {

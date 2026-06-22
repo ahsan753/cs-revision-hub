@@ -63,6 +63,18 @@ export interface CreatedStudentAccount {
   display_name: string;
 }
 
+export interface StudentAccountImportError {
+  index: number;
+  first_name: string;
+  last_name: string;
+  error: string;
+}
+
+export interface BulkCreatedStudentAccounts {
+  created: CreatedStudentAccount[];
+  errors: StudentAccountImportError[];
+}
+
 export async function createClass(name: string, yearGroup: string) {
   const client = requireSupabase();
   const { data, error } = await client.rpc("create_class", {
@@ -149,6 +161,33 @@ export async function createManagedStudentAccount({
   );
   if (error) throw error;
   if (!data) throw new Error("Could not create student account.");
+  return data;
+}
+
+export async function bulkCreateManagedStudentAccounts({
+  students,
+  classId,
+}: {
+  students: Array<{ firstName: string; lastName: string }>;
+  classId: string;
+}) {
+  const client = requireSupabase();
+  const { data, error } =
+    await client.functions.invoke<BulkCreatedStudentAccounts>(
+      "teacher-student-accounts",
+      {
+        body: {
+          action: "bulk_create",
+          class_id: classId,
+          students: students.map((student) => ({
+            first_name: student.firstName,
+            last_name: student.lastName,
+          })),
+        },
+      },
+    );
+  if (error) throw error;
+  if (!data) throw new Error("Could not import student accounts.");
   return data;
 }
 

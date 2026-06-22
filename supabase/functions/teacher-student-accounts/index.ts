@@ -11,6 +11,14 @@ type AccountRequest =
       class_id?: string;
     }
   | {
+      action: "bulk_create";
+      class_id?: string;
+      students?: Array<{
+        first_name?: string;
+        last_name?: string;
+      }>;
+    }
+  | {
       action: "update";
       student_id?: string;
       full_name?: string;
@@ -23,6 +31,29 @@ type AccountRequest =
       action: "delete";
       student_id?: string;
     };
+
+type StudentClass = {
+  id: string;
+  name: string;
+  year_group: string;
+};
+
+type CreatedStudentAccount = {
+  student_id: string;
+  full_name: string;
+  class_id: string;
+  class_name: string;
+  username: string;
+  password: string;
+  display_name: string;
+};
+
+type StudentAccountImportError = {
+  index: number;
+  first_name: string;
+  last_name: string;
+  error: string;
+};
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -55,6 +86,13 @@ Deno.serve(async (req) => {
       return jsonResponse(
         req,
         await createStudentAccount(admin, user.id, body),
+      );
+    }
+
+    if (body.action === "bulk_create") {
+      return jsonResponse(
+        req,
+        await bulkCreateStudentAccounts(admin, user.id, body),
       );
     }
 
@@ -96,6 +134,72 @@ async function createStudentAccount(
   if (!classId) throw new Error("Choose a class for this student.");
 
   const studentClass = await getTeacherClass(admin, teacherId, classId);
+  return createStudentAccountForClass(admin, studentClass, firstName, lastName);
+}
+
+async function bulkCreateStudentAccounts(
+  admin: ReturnType<typeof adminClient>,
+  teacherId: string,
+  body: Extract<AccountRequest, { action: "bulk_create" }>,
+) {
+  const classId = cleanUuid(body.class_id);
+  if (!classId) throw new Error("Choose a class for these students.");
+
+  const students = Array.isArray(body.students) ? body.students : [];
+  if (!students.length) throw new Error("Add at least one student to import.");
+  if (students.length > 100) {
+    throw new Error("Import 100 students or fewer at a time.");
+  }
+
+  const studentClass = await getTeacherClass(admin, teacherId, classId);
+  const created: CreatedStudentAccount[] = [];
+  const errors: StudentAccountImportError[] = [];
+
+  for (const [index, student] of students.entries()) {
+    const firstName = cleanName(student.first_name);
+    const lastName = cleanName(student.last_name);
+
+    if (!firstName || !lastName) {
+      errors.push({
+        index,
+        first_name: firstName,
+        last_name: lastName,
+        error: "First and last name are required.",
+      });
+      continue;
+    }
+
+    try {
+      created.push(
+        await createStudentAccountForClass(
+          admin,
+          studentClass,
+          firstName,
+          lastName,
+        ),
+      );
+    } catch (error) {
+      errors.push({
+        index,
+        first_name: firstName,
+        last_name: lastName,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not create student account.",
+      });
+    }
+  }
+
+  return { created, errors };
+}
+
+async function createStudentAccountForClass(
+  admin: ReturnType<typeof adminClient>,
+  studentClass: StudentClass,
+  firstName: string,
+  lastName: string,
+): Promise<CreatedStudentAccount> {
   const fullName = `${firstName} ${lastName}`;
   const username = await nextAvailableUsername(
     admin,
@@ -264,7 +368,7 @@ async function getTeacherClass(
   admin: ReturnType<typeof adminClient>,
   teacherId: string,
   classId: string,
-) {
+): Promise<StudentClass> {
   const { data, error } = await admin
     .from("classes")
     .select("id, name, year_group")
