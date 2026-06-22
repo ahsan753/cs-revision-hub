@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   BookOpenCheck,
+  Check,
   ChevronRight,
   Clipboard,
   Download,
@@ -1031,6 +1032,7 @@ function StudentRosterRow({
   const [newPassword, setNewPassword] = useState("");
   const [savedPassword, setSavedPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setFullName(student.full_name);
@@ -1039,7 +1041,8 @@ function StudentRosterRow({
     setUsername(student.username ?? "");
   }, [student]);
 
-  const saveDetails = async () => {
+  const saveChanges = async () => {
+    const passwordToSave = newPassword.trim();
     setBusy(true);
     onMessage(null);
     try {
@@ -1048,27 +1051,6 @@ function StudentRosterRow({
         fullName: fullName.trim(),
         displayName: displayName.trim() || null,
         classId,
-      });
-      await onRefresh();
-      onMessage("Student details updated.");
-    } catch (error) {
-      onMessage(
-        error instanceof Error
-          ? error.message
-          : "Could not update student details.",
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const saveLogin = async () => {
-    const passwordToSave = newPassword.trim();
-    setBusy(true);
-    onMessage(null);
-    try {
-      await updateManagedStudentAccount({
-        studentId: student.student_id,
         username: username.trim(),
         password: passwordToSave || undefined,
       });
@@ -1076,18 +1058,29 @@ function StudentRosterRow({
       await onRefresh();
       onMessage(
         passwordToSave
-          ? "Student login updated. Copy the new password before leaving this page."
-          : "Student login updated.",
+          ? "Student changes saved. Copy the new password before leaving this page."
+          : "Student changes saved.",
       );
     } catch (error) {
       onMessage(
         error instanceof Error
           ? error.message
-          : "Could not update student login.",
+          : "Could not save student changes.",
       );
     } finally {
       setBusy(false);
     }
+  };
+
+  const copyLogin = async () => {
+    await copyStudentLogin({
+      fullName,
+      username: username || student.username || "",
+      password: savedPassword || newPassword.trim() || undefined,
+    });
+    setCopied(true);
+    onMessage("Student login copied.");
+    window.setTimeout(() => setCopied(false), 1800);
   };
 
   return (
@@ -1135,7 +1128,7 @@ function StudentRosterRow({
             </div>
           ) : (
             <p className="text-xs font-bold leading-5 text-muted">
-              Existing passwords cannot be viewed. Use Reset, Save login, then
+              Existing passwords cannot be viewed. Use Reset, Save changes, then
               copy the new password.
             </p>
           )}
@@ -1170,19 +1163,10 @@ function StudentRosterRow({
             type="button"
             variant="secondary"
             className="min-h-10 px-3 py-2"
-            disabled={busy || !fullName.trim() || !classId}
-            onClick={() => void saveDetails()}
+            disabled={busy || !fullName.trim() || !classId || !username.trim()}
+            onClick={() => void saveChanges()}
           >
-            Save details
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-10 px-3 py-2"
-            disabled={busy || (!username.trim() && !newPassword.trim())}
-            onClick={() => void saveLogin()}
-          >
-            Save login
+            Save changes
           </Button>
           <Button
             type="button"
@@ -1199,19 +1183,17 @@ function StudentRosterRow({
           </Button>
           <Button
             type="button"
-            variant="secondary"
+            variant={copied ? "success" : "secondary"}
             className="min-h-10 px-3 py-2"
             disabled={busy || !(username || student.username)}
-            onClick={() =>
-              void copyStudentLogin({
-                fullName,
-                username: username || student.username || "",
-                password: savedPassword || newPassword.trim() || undefined,
-              }).then(() => onMessage("Student login copied."))
-            }
+            onClick={() => void copyLogin()}
           >
-            <Clipboard aria-hidden="true" className="size-4" />
-            Copy
+            {copied ? (
+              <Check aria-hidden="true" className="size-4" />
+            ) : (
+              <Clipboard aria-hidden="true" className="size-4" />
+            )}
+            {copied ? "Copied" : "Copy"}
           </Button>
           <Button
             type="button"
