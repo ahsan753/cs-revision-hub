@@ -6,7 +6,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { useXpFloat } from "../../hooks/useXpFloat";
 import { ProgressRing } from "../../components/ui/ProgressRing";
@@ -53,6 +53,7 @@ export function QuizPage() {
   const scopeKey = scopeParam ?? "mixed";
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const backPath = getScopeBackPath(scope);
+  const navigate = useNavigate();
   const progress = useProgressStore((state) => state.itemProgress);
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const recordDailyTaskCompletion = useProgressStore(
@@ -165,9 +166,8 @@ export function QuizPage() {
         />
         <h1 className="mt-5 text-3xl font-extrabold">Quiz complete</h1>
         <p className="mt-2 text-muted">
-          You scored {correctCount} / {answeredCount}.{" "}
-          {session.completedIds.length} target items reached mastery in this
-          session.
+          You scored {correctCount} / {answeredCount}. You completed{" "}
+          {session.completedIds.length} questions in this quiz.
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Button
@@ -224,15 +224,11 @@ export function QuizPage() {
       [current.id]: correct ? "correct" : "incorrect",
     }));
     setSession((value) => {
-      const remaining = value.targets[current.id] ?? 1;
-      const nextRemaining = correct
-        ? Math.max(0, remaining - 1)
-        : Math.max(2, remaining);
       return {
         ...value,
         targets: {
           ...value.targets,
-          [current.id]: nextRemaining,
+          [current.id]: 0,
         },
       };
     });
@@ -254,30 +250,25 @@ export function QuizPage() {
 
   const next = () => {
     if (!answered) return;
-    const remaining = session.targets[current.id] ?? 0;
-    const willFinish = session.queue.length === 1 && remaining <= 0;
+    const willFinish = session.queue.length === 1;
     setSession((value) => {
       const [answeredItem, ...rest] = value.queue;
       if (!answeredItem) return value;
-      const nextRemaining = value.targets[answeredItem.id] ?? 0;
-      const completedIds =
-        nextRemaining <= 0 && !value.completedIds.includes(answeredItem.id)
-          ? [...value.completedIds, answeredItem.id]
-          : value.completedIds;
+      const completedIds = !value.completedIds.includes(answeredItem.id)
+        ? [...value.completedIds, answeredItem.id]
+        : value.completedIds;
       return {
         ...value,
-        queue: nextRemaining > 0 ? [...rest, answeredItem] : rest,
-        optionOrders:
-          nextRemaining > 0
-            ? {
-                ...value.optionOrders,
-                [answeredItem.id]: createMcqOptionOrder(answeredItem),
-              }
-            : value.optionOrders,
+        queue: rest,
         completedIds,
       };
     });
-    if (willFinish) recordDailyTaskCompletion(location.pathname);
+    if (willFinish) {
+      recordDailyTaskCompletion(location.pathname);
+      clearStoredQuizPageState(scopeKey);
+      navigate(backPath);
+      return;
+    }
     setSelected(null);
     selectedOptionRef.current = null;
     setAnswered(false);
@@ -337,7 +328,7 @@ export function QuizPage() {
             })}
           </div>
           <span className="shrink-0 text-xs font-bold text-muted">
-            {session.queue.length} in loop
+            {session.queue.length} remaining
           </span>
         </div>
       </div>
@@ -356,8 +347,7 @@ export function QuizPage() {
           <div className="space-y-3">
             {options.map((option, optionIndex) => {
               const chosen = selected === option.originalIndex;
-              const correct =
-                answered && option.originalIndex === correctIndex;
+              const correct = answered && option.originalIndex === correctIndex;
               const wrong =
                 answered && chosen && option.originalIndex !== correctIndex;
               return (
@@ -397,10 +387,7 @@ export function QuizPage() {
           <div className="mt-6 flex justify-end">
             {answered ? (
               <Button onClick={next}>
-                {session.queue.length === 1 &&
-                (session.targets[current.id] ?? 0) <= 0
-                  ? "Finish quiz"
-                  : "Next question"}{" "}
+                {session.queue.length === 1 ? "Finish quiz" : "Next question"}{" "}
                 <ArrowRight size={18} />
               </Button>
             ) : (
