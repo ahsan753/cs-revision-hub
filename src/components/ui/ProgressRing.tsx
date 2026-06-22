@@ -29,7 +29,7 @@ export function ProgressRing({
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="#e2e8f0"
+          stroke="var(--progress-ring-track, #e2e8f0)"
           strokeWidth={stroke}
         />
         <circle
