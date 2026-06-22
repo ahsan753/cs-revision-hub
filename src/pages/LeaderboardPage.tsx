@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -26,6 +27,7 @@ import {
 
 type Tab = "class" | "year" | "personal";
 type ClassFilter = "all" | string;
+const leaderboardRefreshIntervalMs = 3_000;
 
 interface TeacherLeaderboardRow extends LeaderboardRow {
   student_id: string;
@@ -42,12 +44,15 @@ export function LeaderboardPage() {
   const [dailyStats, setDailyStats] = useState<DailyStat[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const refreshInFlightRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (showLoading = true) => {
     if (!configured || !isVerified || !profile || profile.role === "teacher") {
       return;
     }
-    setLoading(true);
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    if (showLoading) setLoading(true);
     setMessage(null);
     try {
       const [classData, yearData, daily] = await Promise.all([
@@ -63,12 +68,17 @@ export function LeaderboardPage() {
         error instanceof Error ? error.message : "Could not load leaderboard.",
       );
     } finally {
-      setLoading(false);
+      refreshInFlightRef.current = false;
+      if (showLoading) setLoading(false);
     }
   }, [configured, isVerified, profile]);
 
   useEffect(() => {
     void refresh();
+    const intervalId = window.setInterval(() => {
+      void refresh(false);
+    }, leaderboardRefreshIntervalMs);
+    return () => window.clearInterval(intervalId);
   }, [refresh]);
 
   const personal = useMemo(() => {
@@ -163,9 +173,12 @@ function TeacherLeaderboard() {
   const [classFilter, setClassFilter] = useState<ClassFilter>("all");
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const refreshInFlightRef = useRef(false);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = true) => {
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    if (showLoading) setLoading(true);
     setMessage(null);
     try {
       const classData = await getTeacherClassSummaries();
@@ -186,12 +199,17 @@ function TeacherLeaderboard() {
           : "Could not load teacher leaderboard.",
       );
     } finally {
-      setLoading(false);
+      refreshInFlightRef.current = false;
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void refresh();
+    const intervalId = window.setInterval(() => {
+      void refresh(false);
+    }, leaderboardRefreshIntervalMs);
+    return () => window.clearInterval(intervalId);
   }, [refresh]);
 
   const filteredRows = useMemo(() => {
