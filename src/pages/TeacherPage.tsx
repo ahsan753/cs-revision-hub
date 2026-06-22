@@ -1029,6 +1029,7 @@ function StudentRosterRow({
   const [classId, setClassId] = useState(student.class_id);
   const [username, setUsername] = useState(student.username ?? "");
   const [newPassword, setNewPassword] = useState("");
+  const [savedPassword, setSavedPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -1062,17 +1063,22 @@ function StudentRosterRow({
   };
 
   const saveLogin = async () => {
+    const passwordToSave = newPassword.trim();
     setBusy(true);
     onMessage(null);
     try {
       await updateManagedStudentAccount({
         studentId: student.student_id,
         username: username.trim(),
-        password: newPassword.trim() || undefined,
+        password: passwordToSave || undefined,
       });
-      setNewPassword("");
+      setSavedPassword(passwordToSave);
       await onRefresh();
-      onMessage("Student login updated.");
+      onMessage(
+        passwordToSave
+          ? "Student login updated. Copy the new password before leaving this page."
+          : "Student login updated.",
+      );
     } catch (error) {
       onMessage(
         error instanceof Error
@@ -1114,7 +1120,7 @@ function StudentRosterRow({
             className="min-h-10 rounded-lg border border-line px-3 text-sm font-bold outline-none focus:border-primary"
             value={newPassword}
             onChange={(event) => setNewPassword(event.target.value)}
-            placeholder="New password"
+            placeholder="New password for reset"
             autoComplete="new-password"
           />
           {student.username ? (
@@ -1122,6 +1128,17 @@ function StudentRosterRow({
               {studentLoginId(student.username)}
             </p>
           ) : null}
+          {savedPassword ? (
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs font-bold text-emerald-900">
+              <p className="font-extrabold">Saved reset password</p>
+              <p className="mt-1 font-mono">{savedPassword}</p>
+            </div>
+          ) : (
+            <p className="text-xs font-bold leading-5 text-muted">
+              Existing passwords cannot be viewed. Use Reset, Save login, then
+              copy the new password.
+            </p>
+          )}
         </div>
       </td>
       <td className="border-b border-line px-3 py-4">
@@ -1172,7 +1189,10 @@ function StudentRosterRow({
             variant="secondary"
             className="min-h-10 px-3 py-2"
             disabled={busy}
-            onClick={() => setNewPassword(generateReadablePassword())}
+            onClick={() => {
+              setSavedPassword("");
+              setNewPassword(generateReadablePassword());
+            }}
           >
             <KeyRound aria-hidden="true" className="size-4" />
             Reset
@@ -1186,7 +1206,7 @@ function StudentRosterRow({
               void copyStudentLogin({
                 fullName,
                 username: username || student.username || "",
-                password: newPassword.trim() || undefined,
+                password: savedPassword || newPassword.trim() || undefined,
               }).then(() => onMessage("Student login copied."))
             }
           >
