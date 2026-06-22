@@ -183,7 +183,7 @@ export async function bulkCreateManagedStudentAccounts({
           students: students.map((student) => ({
             first_name: student.firstName,
             last_name: student.lastName,
-            class_name: student.className,
+            class_name: classId ? undefined : student.className,
           })),
         },
       },

@@ -604,24 +604,37 @@ function StudentAccountPanel({
     setImportedAccounts([]);
     onMessage(null);
     try {
-      const result = await bulkCreateManagedStudentAccounts({
-        classId: classId.trim() || undefined,
-        students: importRows,
+      const importGroups = await resolveImportGroups({
+        classes,
+        fallbackClassId: classId.trim() || undefined,
+        rows: importRows,
       });
-      setImportedAccounts(result.created);
+      const imported: CreatedStudentAccount[] = [];
+      const rowErrors: string[] = [];
+
+      for (const group of importGroups) {
+        const result = await bulkCreateManagedStudentAccounts({
+          classId: group.classId,
+          students: group.rows,
+        });
+        imported.push(...result.created);
+        rowErrors.push(
+          ...result.errors.map(
+            (item) =>
+              `Row ${group.rows[item.index]?.rowNumber ?? item.index + 1}: ${
+                item.error
+              }`,
+          ),
+        );
+      }
+
+      setImportedAccounts(imported);
       setImportRows([]);
-      setImportErrors(
-        result.errors.map(
-          (item) =>
-            `Row ${importRows[item.index]?.rowNumber ?? item.index + 1}: ${
-              item.error
-            }`,
-        ),
-      );
+      setImportErrors(rowErrors);
       await onCreated();
       onMessage(
-        `Imported ${result.created.length} student login${
-          result.created.length === 1 ? "" : "s"
+        `Imported ${imported.length} student login${
+          imported.length === 1 ? "" : "s"
         }.`,
       );
     } catch (error) {
@@ -905,6 +918,59 @@ function StudentAccountPanel({
       </div>
     </section>
   );
+}
+
+async function resolveImportGroups({
+  classes,
+  fallbackClassId,
+  rows,
+}: {
+  classes: TeacherClassSummary[];
+  fallbackClassId?: string;
+  rows: StudentImportRow[];
+}) {
+  const classByName = new Map(
+    classes.map((item) => [normaliseClassName(item.name), item.id]),
+  );
+  const groups = new Map<string, StudentImportRow[]>();
+
+  for (const row of rows) {
+    const className = row.className.trim();
+    let targetClassId = className
+      ? classByName.get(normaliseClassName(className))
+      : fallbackClassId;
+
+    if (!targetClassId && className) {
+      const created = await createClass(className, inferYearGroup(className));
+      if (!created) {
+        throw new Error(`Could not create class "${className}".`);
+      }
+      targetClassId = created.id;
+      classByName.set(normaliseClassName(created.name), created.id);
+    }
+
+    if (!targetClassId) {
+      throw new Error(
+        `Row ${row.rowNumber}: add a class name or choose a class before importing.`,
+      );
+    }
+
+    groups.set(targetClassId, [...(groups.get(targetClassId) ?? []), row]);
+  }
+
+  return Array.from(groups, ([targetClassId, groupRows]) => ({
+    classId: targetClassId,
+    rows: groupRows,
+  }));
+}
+
+function normaliseClassName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function inferYearGroup(className: string) {
+  const match = className.match(/\byear\s*(\d{1,2})\b/i);
+  return match ? `Year ${match[1]}` : "Imported";
 }
 
 function ClassSummaryRow({
