@@ -17,8 +17,22 @@ import {
 } from "../ranked/rankedClient";
 import type { DailyStat, LeaderboardRow } from "../ranked/rankedTypes";
 import { SupabaseSetupNotice } from "./LoginPage";
+import {
+  getTeacherClassRoster,
+  getTeacherClassSummaries,
+  type TeacherClassRosterRow,
+  type TeacherClassSummary,
+} from "../teacher/teacherClient";
 
 type Tab = "class" | "year" | "personal";
+type ClassFilter = "all" | string;
+
+interface TeacherLeaderboardRow extends LeaderboardRow {
+  student_id: string;
+  class_id: string;
+  total_answered: number;
+  last_answer_at: string | null;
+}
 
 export function LeaderboardPage() {
   const { configured, profile, rankedProgress, isVerified } = useAuth();
@@ -30,7 +44,9 @@ export function LeaderboardPage() {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!configured || !isVerified) return;
+    if (!configured || !isVerified || !profile || profile.role === "teacher") {
+      return;
+    }
     setLoading(true);
     setMessage(null);
     try {
@@ -49,7 +65,7 @@ export function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [configured, isVerified]);
+  }, [configured, isVerified, profile]);
 
   useEffect(() => {
     void refresh();
@@ -72,6 +88,10 @@ export function LeaderboardPage() {
         <SupabaseSetupNotice />
       </div>
     );
+  }
+
+  if (profile?.role === "teacher") {
+    return <TeacherLeaderboard />;
   }
 
   return (
@@ -133,6 +153,174 @@ export function LeaderboardPage() {
           showClassName={tab === "year"}
         />
       )}
+    </div>
+  );
+}
+
+function TeacherLeaderboard() {
+  const [classes, setClasses] = useState<TeacherClassSummary[]>([]);
+  const [rows, setRows] = useState<TeacherLeaderboardRow[]>([]);
+  const [classFilter, setClassFilter] = useState<ClassFilter>("all");
+  const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    setMessage(null);
+    try {
+      const classData = await getTeacherClassSummaries();
+      const rosterGroups = await Promise.all(
+        classData.map((item) => getTeacherClassRoster(item.id)),
+      );
+      setClasses(classData);
+      setRows(toTeacherLeaderboardRows(rosterGroups.flat()));
+      setClassFilter((current) =>
+        current === "all" || classData.some((item) => item.id === current)
+          ? current
+          : "all",
+      );
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not load teacher leaderboard.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const filteredRows = useMemo(() => {
+    if (classFilter === "all") return rankTeacherRows(rows);
+    return rankTeacherRows(rows.filter((row) => row.class_id === classFilter));
+  }, [classFilter, rows]);
+
+  const selectedClass = classes.find((item) => item.id === classFilter);
+  const totalXp = filteredRows.reduce((total, row) => total + row.xp, 0);
+  const activeThisWeek = filteredRows.filter((row) =>
+    row.last_answer_at
+      ? new Date(row.last_answer_at).getTime() >=
+        Date.now() - 7 * 24 * 60 * 60 * 1000
+      : false,
+  ).length;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-extrabold">Leaderboard</h1>
+          <p className="mt-2 text-sm font-bold text-muted">
+            {selectedClass
+              ? `${selectedClass.name} ranked by XP.`
+              : "All your students ranked by XP."}
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => void refresh()}
+          disabled={loading}
+        >
+          <RefreshCw size={17} /> Refresh
+        </Button>
+      </div>
+
+      {message ? <Notice>{message}</Notice> : null}
+
+      <section className="flex flex-col gap-3 rounded-lg border border-line bg-white p-4 shadow-soft md:flex-row md:items-end md:justify-between">
+        <label className="block md:min-w-72">
+          <span className="text-sm font-extrabold text-muted">
+            Class filter
+          </span>
+          <select
+            className="mt-2 min-h-11 w-full rounded-lg border border-line bg-white px-3 text-sm font-bold text-ink outline-none focus:border-primary"
+            value={classFilter}
+            onChange={(event) => setClassFilter(event.target.value)}
+            disabled={loading || classes.length === 0}
+          >
+            <option value="all">All classes</option>
+            {classes.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="grid grid-cols-3 gap-3 text-sm md:min-w-[28rem]">
+          <TeacherStat label="Students" value={filteredRows.length} />
+          <TeacherStat label="Total XP" value={totalXp} />
+          <TeacherStat label="Active 7d" value={activeThisWeek} />
+        </div>
+      </section>
+
+      {classes.length === 0 && !loading ? (
+        <Notice>Create a class before the teacher leaderboard appears.</Notice>
+      ) : null}
+
+      <LeaderboardTable
+        rows={filteredRows}
+        showClassName={classFilter === "all"}
+      />
+    </div>
+  );
+}
+
+function toTeacherLeaderboardRows(
+  roster: TeacherClassRosterRow[],
+): TeacherLeaderboardRow[] {
+  return rankTeacherRows(
+    roster.map((student) => ({
+      student_id: student.student_id,
+      class_id: student.class_id,
+      rank: 0,
+      display_name:
+        student.display_name?.trim() ||
+        student.full_name.split(" ")[0] ||
+        "Student",
+      class_name: student.class_name,
+      level: student.level,
+      xp: student.xp,
+      streak: student.streak,
+      total_answered: student.total_answered,
+      last_answer_at: student.last_answer_at,
+      is_me: false,
+    })),
+  );
+}
+
+function rankTeacherRows(
+  rows: TeacherLeaderboardRow[],
+): TeacherLeaderboardRow[] {
+  return [...rows]
+    .sort((a, b) => {
+      if (b.xp !== a.xp) return b.xp - a.xp;
+      if (b.streak !== a.streak) return b.streak - a.streak;
+      const aTime = a.last_answer_at
+        ? new Date(a.last_answer_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bTime = b.last_answer_at
+        ? new Date(b.last_answer_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      if (aTime !== bTime) return aTime - bTime;
+      return a.display_name.localeCompare(b.display_name);
+    })
+    .map((row, index) => ({ ...row, rank: index + 1 }));
+}
+
+function TeacherStat({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <p className="text-xs font-extrabold uppercase text-muted">{label}</p>
+      <p className="mt-1 text-lg font-extrabold text-primary">{value}</p>
     </div>
   );
 }
