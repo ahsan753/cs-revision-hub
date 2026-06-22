@@ -22,13 +22,19 @@ import type { MCQ } from "../../data/contentTypes";
 import { getMasteryForItemIds } from "../../store/mastery";
 import type { ItemProgress } from "../../store/progressStore";
 import { isKnown, useProgressStore } from "../../store/progressStore";
-import { shuffle } from "../shared/activityUtils";
+import {
+  createMcqOptionOrder,
+  getOrderedMcqOptions,
+  shuffle,
+  validMcqOptionOrder,
+} from "../shared/activityUtils";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
 
 interface QuizSession {
   queue: MCQ[];
   targets: Record<string, number>;
   itemIds: string[];
+  optionOrders: Record<string, number[]>;
   completedIds: string[];
 }
 
@@ -187,9 +193,16 @@ export function QuizPage() {
     );
   }
 
-  const options = current.options ?? [];
+  const options = getOrderedMcqOptions(
+    current,
+    session.optionOrders[current.id],
+  );
   const correctIndex = current.answerIndex ?? 0;
   const isCorrect = selected === correctIndex;
+  const displayedCorrectIndex = options.findIndex(
+    (option) => option.originalIndex === correctIndex,
+  );
+  const correctOption = options[displayedCorrectIndex];
   const currentUnit = contentIndex.subtopicToUnit.get(current.subtopic);
   const showWorkingOut = currentUnit?.number === 1;
 
@@ -254,6 +267,13 @@ export function QuizPage() {
       return {
         ...value,
         queue: nextRemaining > 0 ? [...rest, answeredItem] : rest,
+        optionOrders:
+          nextRemaining > 0
+            ? {
+                ...value.optionOrders,
+                [answeredItem.id]: createMcqOptionOrder(answeredItem),
+              }
+            : value.optionOrders,
         completedIds,
       };
     });
@@ -335,12 +355,14 @@ export function QuizPage() {
 
           <div className="space-y-3">
             {options.map((option, optionIndex) => {
-              const chosen = selected === optionIndex;
-              const correct = answered && optionIndex === correctIndex;
-              const wrong = answered && chosen && optionIndex !== correctIndex;
+              const chosen = selected === option.originalIndex;
+              const correct =
+                answered && option.originalIndex === correctIndex;
+              const wrong =
+                answered && chosen && option.originalIndex !== correctIndex;
               return (
                 <button
-                  key={option}
+                  key={option.originalIndex}
                   className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm font-bold transition ${
                     correct
                       ? "border-emerald-400 bg-emerald-50 text-emerald-800"
@@ -353,14 +375,14 @@ export function QuizPage() {
                   onClick={(event) => {
                     if (answered) return;
                     selectedOptionRef.current = event.currentTarget;
-                    setSelected(optionIndex);
+                    setSelected(option.originalIndex);
                   }}
                   disabled={answered}
                 >
                   <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-current text-xs">
                     {String.fromCharCode(65 + optionIndex)}
                   </span>
-                  <span>{option}</span>
+                  <span>{option.text}</span>
                   {correct ? (
                     <CheckCircle2 className="ml-auto" size={19} />
                   ) : null}
@@ -418,8 +440,8 @@ export function QuizPage() {
                     Correct answer
                   </p>
                   <p className="mt-2 rounded-lg bg-slate-50 p-3 text-sm font-bold">
-                    {String.fromCharCode(65 + correctIndex)}.{" "}
-                    {options[correctIndex]}
+                    {String.fromCharCode(65 + displayedCorrectIndex)}.{" "}
+                    {correctOption?.text}
                   </p>
                 </div>
                 <div>
@@ -489,16 +511,20 @@ function createQuizSession(
     queue,
     targets,
     itemIds: queue.map((item) => item.id),
+    optionOrders: Object.fromEntries(
+      queue.map((item) => [item.id, createMcqOptionOrder(item)]),
+    ),
     completedIds: [],
   };
 }
 
 type StoredQuizPageState = {
-  version: 1;
+  version: 2;
   session: {
     queueIds: string[];
     targets: Record<string, number>;
     itemIds: string[];
+    optionOrders: Record<string, number[]>;
     completedIds: string[];
   };
   selected: number | null;
@@ -537,7 +563,7 @@ function restoreQuizPageState(
     const raw = window.localStorage.getItem(quizStorageKey(scopeKey));
     if (!raw) return createQuizPageState(items, progress);
     const parsed = JSON.parse(raw) as StoredQuizPageState;
-    if (parsed.version !== 1) return createQuizPageState(items, progress);
+    if (parsed.version !== 2) return createQuizPageState(items, progress);
 
     const byId = new Map(items.map((item) => [item.id, item]));
     const queue = parsed.session.queueIds
@@ -569,6 +595,13 @@ function restoreQuizPageState(
         queue,
         targets: parsed.session.targets,
         itemIds: itemIds.length ? itemIds : queue.map((item) => item.id),
+        optionOrders: Object.fromEntries(
+          queue.map((item) => [
+            item.id,
+            validMcqOptionOrder(item, parsed.session.optionOrders[item.id]) ??
+              createMcqOptionOrder(item),
+          ]),
+        ),
         completedIds,
       },
       selected,
@@ -585,11 +618,12 @@ function restoreQuizPageState(
 function saveQuizPageState(scopeKey: string, state: QuizPageState) {
   if (typeof window === "undefined") return;
   const stored: StoredQuizPageState = {
-    version: 1,
+    version: 2,
     session: {
       queueIds: state.session.queue.map((item) => item.id),
       targets: state.session.targets,
       itemIds: state.session.itemIds,
+      optionOrders: state.session.optionOrders,
       completedIds: state.session.completedIds,
     },
     selected: state.selected,

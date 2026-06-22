@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Flashcard } from "../../data/contentTypes";
 import {
+  createMcqOptionOrder,
   formatElapsedTime,
+  getOrderedMcqOptions,
   normaliseText,
   shuffle,
   takeRound,
+  validMcqOptionOrder,
 } from "./activityUtils";
 
 const cards: Flashcard[] = [
@@ -46,6 +49,59 @@ describe("shuffle", () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
 
     expect(shuffle(["a", "b", "c"])).toEqual(["b", "c", "a"]);
+  });
+});
+
+describe("MCQ option ordering", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("creates a shuffled order of original option indexes", () => {
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    const order = createMcqOptionOrder({
+      id: "q1",
+      subtopic: "1.1",
+      question: "Pick one",
+      options: ["A", "B", "C"],
+      answerIndex: 2,
+      explanation: "C is correct.",
+    });
+
+    expect(order).toEqual([1, 2, 0]);
+  });
+
+  it("maps displayed options back to their original indexes", () => {
+    const item = {
+      id: "q1",
+      subtopic: "1.1",
+      question: "Pick one",
+      options: ["A", "B", "C"],
+      answerIndex: 2,
+      explanation: "C is correct.",
+    };
+
+    expect(getOrderedMcqOptions(item, [2, 0, 1])).toEqual([
+      { originalIndex: 2, text: "C" },
+      { originalIndex: 0, text: "A" },
+      { originalIndex: 1, text: "B" },
+    ]);
+  });
+
+  it("rejects malformed saved option orders", () => {
+    const item = {
+      id: "q1",
+      subtopic: "1.1",
+      question: "Pick one",
+      options: ["A", "B", "C"],
+      answerIndex: 2,
+      explanation: "C is correct.",
+    };
+
+    expect(validMcqOptionOrder(item, [0, 0, 1])).toBeNull();
+    expect(validMcqOptionOrder(item, [0, 1])).toBeNull();
+    expect(validMcqOptionOrder(item, [0, 1, 2])).toEqual([0, 1, 2]);
   });
 });
 

@@ -21,6 +21,10 @@ import {
   type SmartSessionItem,
   type SmartSessionPlan,
 } from "./smartSessionPlanner";
+import {
+  createMcqOptionOrder,
+  getOrderedMcqOptions,
+} from "../shared/activityUtils";
 
 interface AnswerRecord {
   id: string;
@@ -40,6 +44,7 @@ export function SmartSessionPage() {
   const [selected, setSelected] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [flashcardRevealed, setFlashcardRevealed] = useState(false);
+  const [sessionRun, setSessionRun] = useState(0);
   const answeredItemRef = useRef<string | null>(null);
   const selectedOptionRef = useRef<HTMLButtonElement | null>(null);
 
@@ -63,6 +68,7 @@ export function SmartSessionPage() {
     setSelected(null);
     setRevealed(false);
     setFlashcardRevealed(false);
+    setSessionRun((value) => value + 1);
     answeredItemRef.current = null;
     selectedOptionRef.current = null;
   };
@@ -170,6 +176,7 @@ export function SmartSessionPage() {
 
       {current.type === "mcq" ? (
         <SmartMcq
+          key={`${sessionRun}:${index}:${current.id}`}
           item={current.item}
           selected={selected}
           revealed={revealed}
@@ -257,9 +264,14 @@ function SmartMcq({
   ) => void;
   selectedOptionRef: MutableRefObject<HTMLButtonElement | null>;
 }) {
-  const options = item.options ?? [];
+  const optionOrder = useMemo(() => createMcqOptionOrder(item), [item]);
+  const options = getOrderedMcqOptions(item, optionOrder);
   const correctIndex = item.answerIndex ?? 0;
   const isCorrect = selected === correctIndex;
+  const displayedCorrectIndex = options.findIndex(
+    (option) => option.originalIndex === correctIndex,
+  );
+  const correctOption = options[displayedCorrectIndex];
 
   return (
     <section className="grid gap-4 lg:grid-cols-[1fr_340px]">
@@ -275,12 +287,13 @@ function SmartMcq({
 
         <div className="space-y-3">
           {options.map((option, optionIndex) => {
-            const chosen = selected === optionIndex;
-            const correct = revealed && optionIndex === correctIndex;
-            const wrong = revealed && chosen && optionIndex !== correctIndex;
+            const chosen = selected === option.originalIndex;
+            const correct = revealed && option.originalIndex === correctIndex;
+            const wrong =
+              revealed && chosen && option.originalIndex !== correctIndex;
             return (
               <button
-                key={option}
+                key={option.originalIndex}
                 className={`flex w-full items-center gap-3 rounded-lg border p-4 text-left text-sm font-bold transition ${
                   correct
                     ? "border-emerald-400 bg-emerald-50 text-emerald-800"
@@ -291,14 +304,15 @@ function SmartMcq({
                         : "border-line bg-white hover:border-primary"
                 }`}
                 onClick={(event) =>
-                  !revealed && onSelect(optionIndex, event.currentTarget)
+                  !revealed &&
+                  onSelect(option.originalIndex, event.currentTarget)
                 }
                 disabled={revealed}
               >
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-current text-xs">
                   {String.fromCharCode(65 + optionIndex)}
                 </span>
-                <span>{option}</span>
+                <span>{option.text}</span>
                 {correct ? (
                   <CheckCircle2 className="ml-auto" size={19} />
                 ) : null}
@@ -347,8 +361,8 @@ function SmartMcq({
           {revealed ? (
             <>
               <p className="rounded-lg bg-slate-50 p-3 text-sm font-bold">
-                {String.fromCharCode(65 + correctIndex)}.{" "}
-                {options[correctIndex]}
+                {String.fromCharCode(65 + displayedCorrectIndex)}.{" "}
+                {correctOption?.text}
               </p>
               <p className="text-sm leading-6 text-ink">{item.explanation}</p>
             </>
