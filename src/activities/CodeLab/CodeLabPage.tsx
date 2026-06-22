@@ -27,6 +27,7 @@ import type {
 import type { RankedSubmission } from "../../ranked/rankedTypes";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText, shuffle } from "../shared/activityUtils";
+import { shouldSubmitRankedAttempt } from "../shared/rewardEligibility";
 
 type CodeLabResult = { correct: boolean; message: string };
 type CodeLabDraft = {
@@ -45,6 +46,7 @@ export function CodeLabPage() {
   const [index, setIndex] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, CodeLabDraft>>({});
   const correctTaskIdsRef = useRef<Set<string>>(new Set());
+  const revealedAnswerTaskIdsRef = useRef<Set<string>>(new Set());
   const recordAnswer = useProgressStore((state) => state.recordAnswer);
   const { triggerXpFloat } = useXpFloat();
   const recordDailyTaskCompletion = useProgressStore(
@@ -58,6 +60,7 @@ export function CodeLabPage() {
     setIndex(0);
     setDrafts({});
     correctTaskIdsRef.current = new Set();
+    revealedAnswerTaskIdsRef.current = new Set();
   }, [tasks]);
 
   const updateDraft = (taskId: string, patch: Partial<CodeLabDraft>) => {
@@ -77,8 +80,11 @@ export function CodeLabPage() {
     anchorEl?: HTMLElement | null,
   ) => {
     if (!task) return;
+    const answerRevealedBeforeAttempt =
+      revealedAnswerTaskIdsRef.current.has(task.id);
     if (correct && correctTaskIdsRef.current.has(task.id)) return;
     if (correct) correctTaskIdsRef.current.add(task.id);
+    if (!correct) revealedAnswerTaskIdsRef.current.add(task.id);
     const difficulty = getDefaultDifficulty(task.difficulty);
     updateDraft(task.id, { result: { correct, message } });
     const result = {
@@ -86,10 +92,12 @@ export function CodeLabPage() {
       correct,
       activity: "code" as const,
       timestamp: Date.now(),
-      ranked: {
-        rankedItemId: task.id,
-        submitted,
-      },
+      ranked: shouldSubmitRankedAttempt({ answerRevealedBeforeAttempt })
+        ? {
+            rankedItemId: task.id,
+            submitted,
+          }
+        : undefined,
     };
     recordAnswer(result, difficulty, {
       onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),

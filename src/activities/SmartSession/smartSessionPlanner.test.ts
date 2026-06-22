@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Flashcard, MCQ } from "../../data/contentTypes";
 import type { ItemProgress } from "../../store/progressStore";
-import { planSmartSession } from "./smartSessionPlanner";
+import {
+  countRemainingSmartSessionBuckets,
+  planSmartSession,
+} from "./smartSessionPlanner";
 
 const now = 1_000_000;
 
@@ -140,5 +143,30 @@ describe("planSmartSession", () => {
 
     expect(plan.items.map((item) => item.bucket)).toEqual(["other", "other"]);
     expect(plan.reviewCount).toBe(2);
+  });
+
+  it("counts remaining due and new items after answers are recorded", () => {
+    const plan = planSmartSession(
+      {
+        due: progress("due", now - 100),
+        review: progress("review", now + 100),
+      },
+      now,
+      {
+        floor: 4,
+        content: {
+          mcqs: [mcq("due"), mcq("new-1"), mcq("review")],
+          flashcards: [flashcard("new-2")],
+        },
+      },
+    );
+
+    expect(
+      countRemainingSmartSessionBuckets(plan.items, ["due", "new-1"]),
+    ).toEqual({
+      dueCount: 0,
+      newCount: 1,
+      reviewCount: 1,
+    });
   });
 });

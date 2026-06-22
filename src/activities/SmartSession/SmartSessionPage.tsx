@@ -7,7 +7,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { MutableRefObject, ReactNode } from "react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useXpFloat } from "../../hooks/useXpFloat";
 import { Button } from "../../components/ui/Button";
@@ -16,6 +16,7 @@ import { getDefaultDifficulty } from "../../content/contentIndex";
 import type { Flashcard, MCQ } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
 import {
+  countRemainingSmartSessionBuckets,
   planSmartSession,
   type SmartSessionItem,
   type SmartSessionPlan,
@@ -44,6 +45,14 @@ export function SmartSessionPage() {
 
   const current = plan.items[index];
   const complete = plan.items.length > 0 && index >= plan.items.length;
+  const remainingCounts = useMemo(
+    () =>
+      countRemainingSmartSessionBuckets(
+        plan.items,
+        answers.map((answer) => answer.id),
+      ),
+    [answers, plan.items],
+  );
 
   const restart = () => {
     setPlan(
@@ -145,16 +154,16 @@ export function SmartSessionPage() {
           <SmartSessionMetric
             id="smart-session-due-help"
             className="bg-indigo-50 text-primary"
-            description="Due items are questions or flashcards you have tried before and the app has scheduled for review now."
+            description="Due items remaining in this session are questions or flashcards you have tried before and the app has scheduled for review now."
           >
-            {plan.dueCount} due
+            {remainingCounts.dueCount} due
           </SmartSessionMetric>
           <SmartSessionMetric
             id="smart-session-new-help"
             className="bg-emerald-50 text-emerald-700"
-            description="New items are questions or flashcards you have not tried yet. They are added when the session needs fresh practice."
+            description="New items remaining in this session are questions or flashcards you had not tried before this session."
           >
-            {plan.newCount} new
+            {remainingCounts.newCount} new
           </SmartSessionMetric>
         </div>
       </div>

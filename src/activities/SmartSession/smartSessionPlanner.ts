@@ -24,6 +24,12 @@ export interface SmartSessionPlan {
   cappedDueCount: number;
 }
 
+export interface SmartSessionBucketCounts {
+  dueCount: number;
+  newCount: number;
+  reviewCount: number;
+}
+
 export interface SmartSessionOptions {
   dueCap?: number;
   floor?: number;
@@ -94,6 +100,20 @@ export function planSmartSession(
     newCount: selected.filter((item) => item.bucket === "unseen").length,
     reviewCount: selected.filter((item) => item.bucket === "other").length,
     cappedDueCount: Math.max(0, due.length - cappedDue.length),
+  };
+}
+
+export function countRemainingSmartSessionBuckets(
+  items: SmartSessionItem[],
+  answeredItemIds: Iterable<string>,
+): SmartSessionBucketCounts {
+  const answered = new Set(answeredItemIds);
+  const remaining = items.filter((item) => !answered.has(item.id));
+
+  return {
+    dueCount: remaining.filter((item) => item.bucket === "due").length,
+    newCount: remaining.filter((item) => item.bucket === "unseen").length,
+    reviewCount: remaining.filter((item) => item.bucket === "other").length,
   };
 }
 

@@ -13,6 +13,7 @@ import type { ConversionOperand } from "../../ranked/rankedTypes";
 import { conversionRankedItemId } from "../../shared/answerCheck";
 import { useProgressStore } from "../../store/progressStore";
 import { normaliseText } from "../shared/activityUtils";
+import { shouldSubmitRankedAttempt } from "../shared/rewardEligibility";
 import { WorkingOutBox } from "../shared/WorkingOutBox";
 
 type Mode =
@@ -63,6 +64,7 @@ export function ConversionTrainerPage() {
     (state) => state.recordDailyTaskCompletion,
   );
   const awardedProblemKeysRef = useRef<Set<string>>(new Set());
+  const revealedAnswerProblemKeysRef = useRef<Set<string>>(new Set());
   const problemKey = `${problem.id}:${problemNonce}`;
   const submittedState = result
     ? result.correct
@@ -94,10 +96,13 @@ export function ConversionTrainerPage() {
   const check = (anchorEl?: HTMLElement | null) => {
     if (result?.correct || awardedProblemKeysRef.current.has(problemKey))
       return;
+    const answerRevealedBeforeAttempt =
+      revealedAnswerProblemKeysRef.current.has(problemKey);
     const correct = problem.accept
       .map(normaliseText)
       .includes(normaliseText(answer));
     if (correct) awardedProblemKeysRef.current.add(problemKey);
+    if (!correct) revealedAnswerProblemKeysRef.current.add(problemKey);
     setResult({
       correct,
       message: correct
@@ -109,15 +114,17 @@ export function ConversionTrainerPage() {
       correct,
       activity: "convert" as const,
       timestamp: Date.now(),
-      ranked: {
-        rankedItemId: conversionRankedItemId(mode, problem.operands),
-        submitted: {
-          kind: "conversion" as const,
-          mode,
-          operands: problem.operands,
-          submittedAnswer: answer,
-        },
-      },
+      ranked: shouldSubmitRankedAttempt({ answerRevealedBeforeAttempt })
+        ? {
+            rankedItemId: conversionRankedItemId(mode, problem.operands),
+            submitted: {
+              kind: "conversion" as const,
+              mode,
+              operands: problem.operands,
+              submittedAnswer: answer,
+            },
+          }
+        : undefined,
     };
     recordAnswer(answerResult, 2, {
       onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),

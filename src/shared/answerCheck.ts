@@ -63,6 +63,25 @@ export function normaliseAnswerText(value: string) {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function normaliseBinaryAnswerText(value: string) {
+  return value.replace(/\s+/g, "");
+}
+
+function isBinaryAnswerText(value: string) {
+  return /^[01\s]+$/.test(value.trim());
+}
+
+function answerTextMatches(expected: string, submitted: string) {
+  if (normaliseAnswerText(expected) === normaliseAnswerText(submitted)) {
+    return true;
+  }
+  return (
+    isBinaryAnswerText(expected) &&
+    isBinaryAnswerText(submitted) &&
+    normaliseBinaryAnswerText(expected) === normaliseBinaryAnswerText(submitted)
+  );
+}
+
 export function verifySubmission(
   item:
     | { content_kind: "mcq"; answer_key: McqAnswerKey }
@@ -104,9 +123,9 @@ export function verifySubmission(
   }
   if (item.content_kind === "conversion" && submitted.kind === "conversion") {
     const expected = solveConversion(submitted.mode, submitted.operands);
-    return expected.accept
-      .map(normaliseAnswerText)
-      .includes(normaliseAnswerText(submitted.submittedAnswer));
+    return expected.accept.some((accepted) =>
+      answerTextMatches(accepted, submitted.submittedAnswer),
+    );
   }
   return false;
 }
@@ -173,9 +192,9 @@ export function verifyMcqAnswer(key: McqAnswerKey, selectedIndex: number) {
 }
 
 export function verifyTextAnswer(key: PredictAnswerKey, submitted: string) {
-  return [key.answer, ...(key.accept ?? [])]
-    .map(normaliseAnswerText)
-    .includes(normaliseAnswerText(submitted));
+  return [key.answer, ...(key.accept ?? [])].some((accepted) =>
+    answerTextMatches(accepted, submitted),
+  );
 }
 
 export function verifyFillBlankAnswer(
@@ -187,7 +206,7 @@ export function verifyFillBlankAnswer(
     return blank.accept.some((accepted) =>
       blank.caseSensitive
         ? submitted.trim() === accepted
-        : normaliseAnswerText(submitted) === normaliseAnswerText(accepted),
+        : answerTextMatches(accepted, submitted),
     );
   });
 }

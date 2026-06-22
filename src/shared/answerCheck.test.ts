@@ -21,6 +21,18 @@ describe("answerCheck", () => {
     ).toBe(true);
   });
 
+  it("accepts 8-bit binary answers with or without nibble spacing", () => {
+    expect(
+      verifyTextAnswer({ answer: "1100 1000" }, "11001000"),
+    ).toBe(true);
+    expect(
+      verifyTextAnswer({ answer: "11001000" }, "1100 1000"),
+    ).toBe(true);
+    expect(
+      verifyTextAnswer({ answer: "1100 1000" }, "1100 1001"),
+    ).toBe(false);
+  });
+
   it("checks fill blanks with per-blank case handling", () => {
     expect(
       verifyFillBlankAnswer(
@@ -79,6 +91,21 @@ describe("answerCheck", () => {
     expect(
       solveConversion("denary-binary", { kind: "value", value: 10 }).accept,
     ).toContain("0000 1010");
+    expect(
+      verifySubmission(
+        {
+          content_kind: "conversion",
+          item_id: "convert-denary-binary:value",
+        },
+        "convert",
+        {
+          kind: "conversion",
+          mode: "denary-binary",
+          operands: { kind: "value", value: 200 },
+          submittedAnswer: "11001000",
+        },
+      ),
+    ).toBe(true);
     expect(
       solveConversion("file-size", {
         kind: "image",
