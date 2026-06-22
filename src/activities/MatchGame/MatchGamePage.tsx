@@ -14,11 +14,7 @@ import {
 } from "../../content/contentIndex";
 import type { Flashcard } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
-import {
-  formatElapsedTime,
-  shuffle,
-  takeRound,
-} from "../shared/activityUtils";
+import { formatElapsedTime, shuffle, takeRound } from "../shared/activityUtils";
 
 export function MatchGamePage() {
   const { scope: scopeParam } = useParams();
@@ -26,7 +22,10 @@ export function MatchGamePage() {
   const scope = useMemo(() => parseScope(scopeParam), [scopeParam]);
   const sourceCards = useMemo(() => getFlashcardsForScope(scope), [scope]);
   const backPath = getScopeBackPath(scope);
-  const timerKey = useMemo(() => `match:${scopeParam ?? "mixed"}`, [scopeParam]);
+  const timerKey = useMemo(
+    () => `match:${scopeParam ?? "mixed"}`,
+    [scopeParam],
+  );
   const [round, setRound] = useState<Flashcard[]>(() =>
     takeRound(sourceCards, 6),
   );
@@ -34,6 +33,9 @@ export function MatchGamePage() {
     shuffle(round),
   );
   const [selectedTerm, setSelectedTerm] = useState<string | null>(null);
+  const [selectedDefinition, setSelectedDefinition] = useState<string | null>(
+    null,
+  );
   const [matched, setMatched] = useState<Record<string, boolean>>({});
   const [wrongMatch, setWrongMatch] = useState<{
     termId: string;
@@ -98,6 +100,7 @@ export function MatchGamePage() {
     setRound(next);
     setDefinitions(shuffle(next));
     setSelectedTerm(null);
+    setSelectedDefinition(null);
     setMatched({});
     matchedIdsRef.current = new Set();
     setWrongMatch(null);
@@ -125,12 +128,6 @@ export function MatchGamePage() {
     recordTimedActivityBest(timerKey, finishedMs);
   };
 
-  const chooseTerm = (cardId: string) => {
-    if (wrongMatch || matched[cardId]) return;
-    startTimer();
-    setSelectedTerm(cardId);
-  };
-
   const showWrongMatch = (termId: string, definitionId: string) => {
     if (wrongMatchTimer.current) {
       window.clearTimeout(wrongMatchTimer.current);
@@ -142,6 +139,68 @@ export function MatchGamePage() {
     }, 1000);
   };
 
+  const resolveMatch = (
+    termId: string,
+    definitionId: string,
+    anchorEl?: HTMLElement | null,
+  ) => {
+    if (
+      wrongMatch ||
+      matched[termId] ||
+      matched[definitionId] ||
+      matchedIdsRef.current.has(termId) ||
+      matchedIdsRef.current.has(definitionId)
+    )
+      return;
+    const correct = termId === definitionId;
+    const matchedCard = round.find((card) => card.id === termId);
+    const difficulty = getDefaultDifficulty(matchedCard?.difficulty);
+    setMoves((value) => value + 1);
+    const result = {
+      itemId: termId,
+      correct,
+      activity: "match" as const,
+      timestamp: Date.now(),
+      ranked: {
+        rankedItemId: termId,
+        submitted: {
+          kind: "match" as const,
+          termId,
+          definitionId,
+        },
+      },
+    };
+    recordAnswer(result, difficulty, {
+      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
+    });
+    if (correct) {
+      matchedIdsRef.current.add(termId);
+      setWrongMatch(null);
+      const nextMatched = { ...matched, [termId]: true };
+      setMatched(nextMatched);
+      if (Object.keys(nextMatched).length === round.length) {
+        stopTimer();
+        recordDailyTaskCompletion(location.pathname);
+      }
+      setFeedback("Correct match");
+    } else {
+      showWrongMatch(termId, definitionId);
+      setFeedback("Try a different pair");
+    }
+    setSelectedTerm(null);
+    setSelectedDefinition(null);
+  };
+
+  const chooseTerm = (cardId: string, anchorEl?: HTMLElement | null) => {
+    if (wrongMatch || matched[cardId]) return;
+    startTimer();
+    if (selectedDefinition) {
+      resolveMatch(cardId, selectedDefinition, anchorEl);
+      return;
+    }
+    setSelectedTerm(cardId);
+  };
+
   const restart = () => {
     if (wrongMatchTimer.current) {
       window.clearTimeout(wrongMatchTimer.current);
@@ -151,6 +210,7 @@ export function MatchGamePage() {
     setRound(next);
     setDefinitions(shuffle(next));
     setSelectedTerm(null);
+    setSelectedDefinition(null);
     setMatched({});
     matchedIdsRef.current = new Set();
     setWrongMatch(null);
@@ -160,56 +220,19 @@ export function MatchGamePage() {
   };
 
   const chooseDefinition = (card: Flashcard, anchorEl?: HTMLElement | null) => {
-    if (
-      !selectedTerm ||
-      wrongMatch ||
-      matched[card.id] ||
-      matchedIdsRef.current.has(card.id)
-    )
+    if (wrongMatch || matched[card.id] || matchedIdsRef.current.has(card.id))
       return;
-    const correct = selectedTerm === card.id;
-    const difficulty = getDefaultDifficulty(card.difficulty);
-    setMoves((value) => value + 1);
-    const result = {
-      itemId: selectedTerm,
-      correct,
-      activity: "match" as const,
-      timestamp: Date.now(),
-      ranked: {
-        rankedItemId: selectedTerm,
-        submitted: {
-          kind: "match" as const,
-          termId: selectedTerm,
-          definitionId: card.id,
-        },
-      },
-    };
-    recordAnswer(result, difficulty, {
-      onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),
-    });
-    if (correct) {
-      matchedIdsRef.current.add(card.id);
-      setWrongMatch(null);
-      const nextMatched = { ...matched, [card.id]: true };
-      setMatched(nextMatched);
-      if (Object.keys(nextMatched).length === round.length) {
-        stopTimer();
-        recordDailyTaskCompletion(location.pathname);
-      }
-      setFeedback("Correct match");
-    } else {
-      showWrongMatch(selectedTerm, card.id);
-      setFeedback("Try a different definition");
+    startTimer();
+    if (selectedTerm) {
+      resolveMatch(selectedTerm, card.id, anchorEl);
+      return;
     }
-    setSelectedTerm(null);
+    setSelectedDefinition(card.id);
   };
 
   if (round.length === 0) {
     return (
-      <EmptyActivity
-        title="No matching pairs available"
-        backPath={backPath}
-      />
+      <EmptyActivity title="No matching pairs available" backPath={backPath} />
     );
   }
 
@@ -226,7 +249,9 @@ export function MatchGamePage() {
             <span>
               Moves: <span className="text-ink">{moves}</span>
             </span>
-            <span>Time: {formatElapsedTime(completedElapsedMs ?? elapsedMs)}</span>
+            <span>
+              Time: {formatElapsedTime(completedElapsedMs ?? elapsedMs)}
+            </span>
             <span>
               Personal best:{" "}
               {bestTimeMs ? formatElapsedTime(bestTimeMs) : "Not set"}
@@ -248,7 +273,7 @@ export function MatchGamePage() {
                 <motion.button
                   key={card.id}
                   disabled={matched[card.id] || Boolean(wrongMatch)}
-                  onClick={() => chooseTerm(card.id)}
+                  onClick={(event) => chooseTerm(card.id, event.currentTarget)}
                   animate={
                     reducedMotion
                       ? undefined
@@ -301,7 +326,9 @@ export function MatchGamePage() {
                       ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                       : isWrongMatch
                         ? "border-red-400 bg-red-50 text-red-700"
-                        : "border-line bg-white hover:border-primary"
+                        : selectedDefinition === card.id
+                          ? "border-primary bg-indigo-50 text-primary"
+                          : "border-line bg-white hover:border-primary"
                   }`}
                 >
                   {card.definition}
@@ -317,7 +344,7 @@ export function MatchGamePage() {
         >
           {complete
             ? "Round complete. Nice work."
-            : feedback || "Select a term, then choose its matching definition."}
+            : feedback || "Select a term or definition, then choose its match."}
         </div>
       </section>
     </div>
