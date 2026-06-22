@@ -139,7 +139,7 @@ export function MatchGamePage() {
     wrongMatchTimer.current = window.setTimeout(() => {
       setWrongMatch(null);
       wrongMatchTimer.current = null;
-    }, 2000);
+    }, 1000);
   };
 
   const restart = () => {
