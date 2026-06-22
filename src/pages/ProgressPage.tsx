@@ -1,4 +1,6 @@
+import { ArrowRight } from "lucide-react";
 import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { contentIndex } from "../content/contentIndex";
 import { BadgeShelf } from "../components/ui/BadgeShelf";
 import { MasteryChip } from "../components/ui/MasteryChip";
@@ -87,10 +89,19 @@ export function ProgressPage() {
               className="rounded-lg border border-line bg-white p-5 shadow-soft"
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-extrabold">
-                    Unit {unit.number} {unit.title}
-                  </h2>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-extrabold">
+                      Unit {unit.number} {unit.title}
+                    </h2>
+                    <Link
+                      to={`/unit/${unit.id}`}
+                      className="inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border border-line bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:border-primary hover:text-primary"
+                      aria-label={`Go to Unit ${unit.number} for practise`}
+                    >
+                      Go to unit for practise <ArrowRight size={15} />
+                    </Link>
+                  </div>
                   <div className="mt-3 flex items-center gap-3">
                     <MasteryChip state={unitMastery.state} />
                     <span className="text-sm font-bold text-muted">
