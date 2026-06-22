@@ -18,6 +18,7 @@ import {
   shuffle,
   takeRound,
 } from "../shared/activityUtils";
+import { shouldSubmitRankedAttempt } from "../shared/rewardEligibility";
 
 interface MemoryCard {
   key: string;
@@ -45,6 +46,9 @@ export function MemoryGamePage() {
   const [elapsedMs, setElapsedMs] = useState(0);
   const [completedElapsedMs, setCompletedElapsedMs] = useState<number | null>(
     null,
+  );
+  const [rankedSessionId, setRankedSessionId] = useState(() =>
+    createRankedMemorySessionId(),
   );
   const closeTimer = useRef<number | null>(null);
   const startedAtRef = useRef<number | null>(null);
@@ -99,6 +103,7 @@ export function MemoryGamePage() {
     setMatched({});
     matchedPairIdsRef.current = new Set();
     setMoves(0);
+    setRankedSessionId(createRankedMemorySessionId());
     resetTimer();
   }, [sourceCards]);
 
@@ -131,6 +136,7 @@ export function MemoryGamePage() {
     setMatched({});
     matchedPairIdsRef.current = new Set();
     setMoves(0);
+    setRankedSessionId(createRankedMemorySessionId());
     resetTimer();
   };
 
@@ -158,7 +164,7 @@ export function MemoryGamePage() {
         correct,
         activity: "memory" as const,
         timestamp: Date.now(),
-        ranked: first
+        ranked: first && shouldSubmitRankedAttempt({ correct })
           ? {
               rankedItemId: second.pairId,
               submitted: {
@@ -167,6 +173,7 @@ export function MemoryGamePage() {
                 secondPairId: second.pairId,
                 firstKind: first.kind,
                 secondKind: second.kind,
+                sessionId: rankedSessionId,
               },
             }
           : undefined,
@@ -312,4 +319,8 @@ function makeDeck(
       },
     ]),
   );
+}
+
+function createRankedMemorySessionId() {
+  return crypto.randomUUID();
 }

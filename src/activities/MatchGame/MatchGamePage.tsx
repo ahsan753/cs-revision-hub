@@ -15,6 +15,7 @@ import {
 import type { Flashcard } from "../../data/contentTypes";
 import { useProgressStore } from "../../store/progressStore";
 import { formatElapsedTime, shuffle, takeRound } from "../shared/activityUtils";
+import { shouldSubmitRankedAttempt } from "../shared/rewardEligibility";
 
 export function MatchGamePage() {
   const { scope: scopeParam } = useParams();
@@ -161,14 +162,16 @@ export function MatchGamePage() {
       correct,
       activity: "match" as const,
       timestamp: Date.now(),
-      ranked: {
-        rankedItemId: termId,
-        submitted: {
-          kind: "match" as const,
-          termId,
-          definitionId,
-        },
-      },
+      ranked: shouldSubmitRankedAttempt({ correct })
+        ? {
+            rankedItemId: termId,
+            submitted: {
+              kind: "match" as const,
+              termId,
+              definitionId,
+            },
+          }
+        : undefined,
     };
     recordAnswer(result, difficulty, {
       onRankedXpPreview: (amount) => triggerXpFloat(amount, anchorEl),

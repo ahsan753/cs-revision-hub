@@ -214,7 +214,8 @@ function validateSubmitted(value: unknown): string | null {
     return isShortString(value.firstPairId) &&
       isShortString(value.secondPairId) &&
       isCardKind(value.firstKind) &&
-      isCardKind(value.secondKind)
+      isCardKind(value.secondKind) &&
+      (value.sessionId === undefined || isBoundedString(value.sessionId, 80))
       ? null
       : "Invalid memory submission";
   }

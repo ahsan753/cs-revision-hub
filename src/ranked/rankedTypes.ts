@@ -23,6 +23,7 @@ export type RankedSubmission =
       secondPairId: string;
       firstKind: "term" | "definition";
       secondKind: "term" | "definition";
+      sessionId?: string;
     }
   | { kind: "code-predict"; answer: string }
   | { kind: "code-fill"; answersByBlankId: Record<string, string> }

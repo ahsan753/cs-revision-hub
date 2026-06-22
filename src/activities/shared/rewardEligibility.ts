@@ -1,7 +1,9 @@
 export function shouldSubmitRankedAttempt({
-  answerRevealedBeforeAttempt,
+  answerRevealedBeforeAttempt = false,
+  correct = true,
 }: {
-  answerRevealedBeforeAttempt: boolean;
+  answerRevealedBeforeAttempt?: boolean;
+  correct?: boolean;
 }) {
-  return !answerRevealedBeforeAttempt;
+  return correct && !answerRevealedBeforeAttempt;
 }

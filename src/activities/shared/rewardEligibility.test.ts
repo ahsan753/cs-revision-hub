@@ -13,4 +13,12 @@ describe("shouldSubmitRankedAttempt", () => {
       shouldSubmitRankedAttempt({ answerRevealedBeforeAttempt: true }),
     ).toBe(false);
   });
+
+  it("blocks ranked submission for incorrect flashcard-pair attempts", () => {
+    expect(shouldSubmitRankedAttempt({ correct: false })).toBe(false);
+  });
+
+  it("allows correct attempts when no answer was revealed first", () => {
+    expect(shouldSubmitRankedAttempt({ correct: true })).toBe(true);
+  });
 });
